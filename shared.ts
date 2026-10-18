@@ -23,6 +23,7 @@ export const bridge = {
   fullscreen: 'wangcai:fullscreen',
   install: 'wangcai:install',
   installs: 'wangcai:installs',
+  coreUpdate: 'wangcai:core-update',
   loadTabs: 'wangcai:tabs',
   saveTabs: 'wangcai:save-tabs',
   loadGroups: 'wangcai:groups',
@@ -30,18 +31,21 @@ export const bridge = {
   open: 'wangcai:open',
 } as const;
 
-// What the shell says to the window over the bridge channel: open the plugin page, and what rebuilding Core
-// is doing. Both are drawn by the page the shell names.
+// What the shell says to the window over the bridge channel: which page to open, and what rebuilding Core is
+// doing. The page a topic names is the one that draws it.
 export const pluginPageTopic = 'plugin-page';
+export const corePageTopic = 'core-page';
 export const coreStatusTopic = 'core-status';
-// The row Core's own rebuild reports itself under, on the page the plugins report to.
-export const coreId = 'core';
 
 export interface PluginInfo { id: string; config: Record<string, unknown>; ui?: string; css?: string; error?: string; workspaces?: boolean }
 
 // What a plugin init.ts lists is doing, as the manager page reports it.
 export type InstallStage = 'cloning' | 'updating' | 'installing' | 'building' | 'ready' | 'failed';
 export interface InstallStatus { id: string; stage: InstallStage; message?: string }
+// What rebuilding Core reports: the stages a plugin install reports, under no plugin's name.
+export interface CoreStatus { stage: InstallStage; message?: string }
+// What a stage is called on the page that reports it.
+export const stageNames: Record<InstallStage, string> = { cloning: '克隆中', updating: '同步中', installing: '安装依赖', building: '构建中', ready: '就绪', failed: '失败' };
 // The left sidebar's own bookkeeping: workspaces a provider serves, gathered under a named group, which the provider
 // never hears of.
 export interface WorkspaceGroup {
@@ -61,6 +65,7 @@ export interface PluginBridge {
   request<T = any>(id: string, method: string, params?: unknown): Promise<T>;
   install(ids: string[]): Promise<void>;
   installs(): Promise<InstallStatus[]>;
+  coreUpdate(): Promise<void>;
   loadTabs(): Promise<TabRecord[]>;
   saveTabs(tabs: TabRecord[]): Promise<void>;
   loadGroups(): Promise<WorkspaceGroup[]>;

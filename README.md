@@ -11,7 +11,7 @@ WangCai（壳）                       WangCai-Core（本仓库）
 ├─ desktop/main/index.ts           ├─ main/   config plugins manager install
 │    窗口 / preload 桥 / 打包       │          machines resources agent index
 ├─ desktop/main/core.ts            ├─ ui/     main tabs layout workspace-sidebar
-│    解析、加载、重建 Core          │          installs style.css index.html
+│    解析、加载、重建 Core          │          core installs style.css index.html
 └─ desktop/main/preload.ts         └─ shared.ts  桥、协议与插件类型
 ```
 

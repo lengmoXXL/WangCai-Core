@@ -1,5 +1,6 @@
 import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
 import { previewMessage, previewUrl, uiFont } from '../shared';
+import { corePage } from './core';
 import { installsPage } from './installs';
 import { sidebarDividers } from './layout';
 import { sidebarTabs } from './tabs';
@@ -29,7 +30,7 @@ async function start() {
   };
   window.wangcai.subscribe('fullscreen', applyChrome);
   applyChrome(await window.wangcai.fullscreen());
-  root.append(installsPage());
+  root.append(corePage(), installsPage());
   const main = document.createElement('main');
   main.className = 'desktop-main';
   const plugins = await window.wangcai.plugins();
