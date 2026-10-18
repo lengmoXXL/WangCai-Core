@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { TabRecord } from '@lengmoxxl/sdk/channel';
-import { bridge, pluginScheme, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '../shared';
+import { pluginScheme, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '../shared';
 import { agentInstaller } from './agent';
 import { groupsPath, loadConfig, tabsPath } from './config';
 import type { Core, CoreHost } from './host';
@@ -66,26 +66,34 @@ export async function activate(host: CoreHost): Promise<Core> {
     writeFileSync(`${path}.tmp`, JSON.stringify(list, null, 2));
     renameSync(`${path}.tmp`, path);
   };
-  const handle = (channel: string, handler: (...args: any[]) => unknown) => host.ipc.handle(channel, handler);
-  handle(bridge.publish, async (event: string, data: unknown) => (await manager.loaded()).publish(event, data));
-  handle(bridge.plugins, async () => (await manager.loaded()).plugins);
-  handle(bridge.request, async (id: string, method: string, params: unknown) => (await manager.loaded()).request(id, method, params));
-  handle(bridge.config, () => profile);
-  handle(bridge.installs, () => manager.statuses);
-  handle(bridge.fullscreen, () => host.fullscreen());
-  // What the page's update and retry entries ask for.
-  handle(bridge.install, async (ids: string[]) => {
-    if (await manager.update(ids)) host.reload();
-  });
-  handle(bridge.loadTabs, () => readList<TabRecord>(tabsPath()));
-  handle(bridge.saveTabs, (tabs: TabRecord[]) => writeList(tabsPath(), tabs));
-  handle(bridge.loadGroups, () => readList<WorkspaceGroup>(groupsPath()));
-  handle(bridge.saveGroups, (groups: WorkspaceGroup[]) => writeList(groupsPath(), groups));
-  // A plugin hands the shell a link, not a program: the shell decides what a scheme may open.
-  handle(bridge.open, (url: string) => host.openExternal(url));
+  const methods: Record<string, (...args: any[]) => unknown> = {
+    publish: async (event: string, data: unknown) => (await manager.loaded()).publish(event, data),
+    plugins: async () => (await manager.loaded()).plugins,
+    request: async (id: string, method: string, params: unknown) => (await manager.loaded()).request(id, method, params),
+    config: () => profile,
+    // The window's own Core page asks the app for a rebuild, which the app reports back on its topic.
+    'core-update': () => host.updateCore(),
+    installs: () => manager.statuses,
+    fullscreen: () => host.fullscreen(),
+    // What the plugin page's update and retry entries ask for.
+    install: async (ids: string[]) => {
+      if (await manager.update(ids)) host.reload();
+    },
+    tabs: () => readList<TabRecord>(tabsPath()),
+    'save-tabs': (tabs: TabRecord[]) => writeList(tabsPath(), tabs),
+    groups: () => readList<WorkspaceGroup>(groupsPath()),
+    'save-groups': (groups: WorkspaceGroup[]) => writeList(groupsPath(), groups),
+    // A plugin hands the shell a link, not a program: the shell decides what a scheme may open.
+    open: (url: string) => host.openExternal(url),
+  };
   return {
     background: profile.theme.background,
     network,
+    dispatch: (method: string, ...args: unknown[]) => {
+      const answer = methods[method];
+      if (!answer) throw new Error(`Unknown method: ${method}`);
+      return answer(...args);
+    },
     dispose: async () => { await (await manager.loaded()).dispose(); },
   };
 }

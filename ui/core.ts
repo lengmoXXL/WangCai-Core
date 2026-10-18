@@ -1,4 +1,4 @@
-import { corePageTopic, coreStatusTopic, stageNames, type CoreStatus, type InstallStage } from '../shared';
+import { call, corePageTopic, coreStatusTopic, stageNames, type CoreStatus, type InstallStage } from '../shared';
 
 /** The Core page: what the shell's own rebuild of Core is doing, and the button that asks for one. */
 export function corePage() {
@@ -17,7 +17,7 @@ export function corePage() {
     item.onclick = action;
     return item;
   };
-  const update = button('更新', () => { void window.wangcai.coreUpdate().catch(console.error); });
+  const update = button('更新', () => { void call('core-update'); });
   const close = button('关闭', () => { element.hidden = true; });
   actions.append(update, close);
   header.append(heading, actions);

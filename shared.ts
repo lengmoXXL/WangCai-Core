@@ -13,23 +13,8 @@ export const previewScheme = 'wangcai-preview';
 export const previewUrl = `${previewScheme}://preview/`;
 export const previewMessage = 'wangcai-preview';
 
-// The channels the shell's preload and Core's main have to agree on: one per bridge method, one broadcast.
-export const bridge = {
-  channel: 'wangcai:channel',
-  publish: 'wangcai:publish',
-  plugins: 'wangcai:plugins',
-  request: 'wangcai:request',
-  config: 'wangcai:config',
-  fullscreen: 'wangcai:fullscreen',
-  install: 'wangcai:install',
-  installs: 'wangcai:installs',
-  coreUpdate: 'wangcai:core-update',
-  loadTabs: 'wangcai:tabs',
-  saveTabs: 'wangcai:save-tabs',
-  loadGroups: 'wangcai:groups',
-  saveGroups: 'wangcai:save-groups',
-  open: 'wangcai:open',
-} as const;
+// The two channels the app's preload and this repo share: one asks for a method by name, one carries topics.
+export const link = { invoke: 'wangcai:invoke', channel: 'wangcai:channel' } as const;
 
 // What the shell says to the window over the bridge channel: which page to open, and what rebuilding Core is
 // doing. The page a topic names is the one that draws it.
@@ -57,19 +42,10 @@ export interface WorkspaceGroup {
   after?: number;
 }
 export interface PluginBridge {
-  publish(event: string, data: unknown): Promise<void>;
+  call(method: string, ...args: unknown[]): Promise<any>;
   subscribe(event: string, callback: (data: unknown) => void): () => void;
-  plugins(): Promise<PluginInfo[]>;
-  config(): Promise<Profile>;
-  fullscreen(): Promise<boolean>;
-  request<T = any>(id: string, method: string, params?: unknown): Promise<T>;
-  install(ids: string[]): Promise<void>;
-  installs(): Promise<InstallStatus[]>;
-  coreUpdate(): Promise<void>;
-  loadTabs(): Promise<TabRecord[]>;
-  saveTabs(tabs: TabRecord[]): Promise<void>;
-  loadGroups(): Promise<WorkspaceGroup[]>;
-  saveGroups(groups: WorkspaceGroup[]): Promise<void>;
-  open(url: string): Promise<void>;
 }
+
+/** One method of the app's bridge, which is one ipc call however many methods this repo answers. */
+export const call = <T = any>(method: string, ...args: unknown[]) => window.wangcai.call(method, ...args) as Promise<T>;
 declare global { interface Window { wangcai: PluginBridge } }

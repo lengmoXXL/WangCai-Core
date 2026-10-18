@@ -1,4 +1,5 @@
 import type { TabContent, TabOptions, TabRecord } from '@lengmoxxl/sdk/channel';
+import { call } from '../shared';
 import { clampMenu, dragSource, onDragLeave, type MenuAnchor } from './layout';
 
 export async function sidebarTabs(root: HTMLElement) {
@@ -32,7 +33,7 @@ export async function sidebarTabs(root: HTMLElement) {
   const tabs = new Map<string, Tab>();
   const records = new Map<string, TabRecord>();
   let dragging: string | undefined;
-  for (const record of await window.wangcai.loadTabs()) records.set(JSON.stringify([record.plugin, record.workspaceId ?? '', record.id]), record);
+  for (const record of await call<TabRecord[]>('tabs')) records.set(JSON.stringify([record.plugin, record.workspaceId ?? '', record.id]), record);
 
   const viewPicker = document.createElement('button');
   viewPicker.className = 'view-picker';
@@ -101,7 +102,7 @@ export async function sidebarTabs(root: HTMLElement) {
   };
   const settle = (activeId: string | undefined) => {
     active = activeId;
-    void window.wangcai.saveTabs([...records.values()]);
+    void call('save-tabs', [...records.values()]);
     const wanted = selected.get(activeId ?? '') ?? selected.get('');
     current = wanted && tabs.has(wanted) ? wanted : '';
     show();
@@ -133,7 +134,7 @@ export async function sidebarTabs(root: HTMLElement) {
     const workspaceId = options.workspaceId ?? active;
     const key = JSON.stringify([plugin, workspaceId ?? '', options.id]);
     records.set(key, { plugin, id: options.id, workspaceId });
-    void window.wangcai.saveTabs([...records.values()]);
+    void call('save-tabs', [...records.values()]);
     const existing = tabs.get(key);
     if (existing) {
       void existing.content.dispose();
@@ -163,7 +164,7 @@ export async function sidebarTabs(root: HTMLElement) {
       const siblings = [...tabs].filter(([, item]) => (item.workspaceId ?? '') === (tab.workspaceId ?? '')).map(([itemKey]) => itemKey);
       const index = siblings.indexOf(tab.key);
       removeTab(tab.key);
-      void window.wangcai.saveTabs([...records.values()]);
+      void call('save-tabs', [...records.values()]);
       if (current === tab.key) select(siblings[index - 1] ?? siblings[index + 1] ?? '');
     };
     element.append(button, close);
@@ -197,7 +198,7 @@ export async function sidebarTabs(root: HTMLElement) {
       reorder(tabs);
       reorder(records);
       header.insertBefore(tabs.get(source)!.element, before === undefined ? viewPicker : tabs.get(before)!.element);
-      void window.wangcai.saveTabs([...records.values()]);
+      void call('save-tabs', [...records.values()]);
     };
     header.insertBefore(element, viewPicker);
     content.append(panel);

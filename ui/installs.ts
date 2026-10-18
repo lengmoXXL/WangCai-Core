@@ -1,9 +1,9 @@
-import { stageNames, type InstallStage, type InstallStatus } from '../shared';
+import { call, stageNames, type InstallStage, type InstallStatus } from '../shared';
 
 
 /** The plugin page: a card over the app, one row per plugin init.ts lists, and what to do about it. */
 export function installsPage() {
-  const install = (ids: string[]) => { void window.wangcai.install(ids).catch(console.error); };
+  const install = (ids: string[]) => { void call('install', ids); };
   const element = document.createElement('section');
   element.className = 'installs';
   element.hidden = true;
@@ -64,6 +64,6 @@ export function installsPage() {
   };
   window.wangcai.subscribe('plugin-page', () => { element.hidden = false; });
   window.wangcai.subscribe('install-statuses', (statuses) => update(statuses as InstallStatus[]));
-  void window.wangcai.installs().then(update);
+  void call<InstallStatus[]>('installs').then(update);
   return element;
 }

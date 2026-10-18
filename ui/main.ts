@@ -1,5 +1,6 @@
 import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
-import { previewMessage, previewUrl, uiFont } from '../shared';
+import type { Profile } from '@lengmoxxl/sdk';
+import { call, previewMessage, previewUrl, uiFont, type PluginInfo } from '../shared';
 import { corePage } from './core';
 import { installsPage } from './installs';
 import { sidebarDividers } from './layout';
@@ -18,7 +19,7 @@ window.addEventListener('beforeunload', () => {
 async function start() {
   // The shell's own theme comes from the app, not from a plugin, so it is set before anything is drawn:
   // the plugin page is styled from its first moment even when a plugin still has to be cloned and built.
-  const profile = await window.wangcai.config();
+  const profile = await call<Profile>('config');
   for (const [token, color] of Object.entries(profile.theme)) document.documentElement.style.setProperty(`--wc-${token}`, color);
   document.documentElement.style.setProperty('--wc-font', uiFont);
   const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+/g)!.map(Number);
@@ -29,11 +30,11 @@ async function start() {
     else document.documentElement.style.removeProperty('--wc-chrome');
   };
   window.wangcai.subscribe('fullscreen', applyChrome);
-  applyChrome(await window.wangcai.fullscreen());
+  applyChrome(await call<boolean>('fullscreen'));
   root.append(corePage(), installsPage());
   const main = document.createElement('main');
   main.className = 'desktop-main';
-  const plugins = await window.wangcai.plugins();
+  const plugins = await call<PluginInfo[]>('plugins');
   // Nothing to load fills the pane rather than the window: the page above it is what reported the plugins
   // that are out.
   if (!plugins.length) main.textContent = '未安装插件';
@@ -82,7 +83,7 @@ async function start() {
       }
       const context: UiContext = {
         global: {
-          publish: window.wangcai.publish,
+          publish: (event, data) => call('publish', event, data),
           subscribe(topic, callback) {
             const off = window.wangcai.subscribe(topic, callback as (data: unknown) => void);
             subscriptions.add(off);
@@ -90,7 +91,7 @@ async function start() {
           },
         },
         ui: {
-          request: (method, params) => window.wangcai.request(plugin.id, method, params),
+          request: (method, params) => call('request', plugin.id, method, params),
           subscribe(topic, callback) {
             const off = window.wangcai.subscribe(`${plugin.id}:${topic}`, callback as (data: unknown) => void);
             subscriptions.add(off);
@@ -101,7 +102,7 @@ async function start() {
           config: { ...profile, ...plugin.config },
           preview: { url: previewUrl, message: previewMessage },
           tabs: (options) => tabStrip.open(plugin.id, options),
-          open: window.wangcai.open,
+          open: (url) => call('open', url),
         },
       };
       const module = await import(/* @vite-ignore */ plugin.ui!);

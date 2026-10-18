@@ -1,6 +1,6 @@
 import type { WorkspaceMenuItem, WorkspaceRow, WorkspaceStatus } from '@lengmoxxl/sdk';
 import type { Dispose } from '@lengmoxxl/sdk/channel';
-import type { WorkspaceGroup } from '../shared';
+import { call, type WorkspaceGroup } from '../shared';
 import { clampMenu, clearDrop, dragSource, onDragLeave } from './layout';
 // A div with a role is not a button, so it answers a click and the keys a button would.
 const onActivate = (element: HTMLElement, action: () => void) => {
@@ -37,7 +37,7 @@ export async function workspaceSidebar(options: {
   element.className = 'desktop-sidebar sidebar-left';
   const rowsByProvider = new Map(providers.map((id) => [id, [] as WorkspaceRow[]]));
   const providerOf = (id: string) => providers.find((provider) => rowsByProvider.get(provider)!.some((row) => row.id === id));
-  const groups = await window.wangcai.loadGroups();
+  const groups = await call<WorkspaceGroup[]>('groups');
   // The workspace in front.
   let active: string | undefined;
   // A group only decides which workspaces sit together.
@@ -123,7 +123,7 @@ export async function workspaceSidebar(options: {
       } else {
         const provider = providerOf(target.id);
         if (!provider) return;
-        await window.wangcai.request(provider, 'workspace-rename', { id: target.id, name: renameInput.value });
+        await call('request', provider, 'workspace-rename', { id: target.id, name: renameInput.value });
         await refreshRows();
       }
       hideRename();
@@ -173,7 +173,7 @@ export async function workspaceSidebar(options: {
       for (const provider of providers) {
         let menuItems: WorkspaceMenuItem[];
         try {
-          menuItems = await window.wangcai.request<WorkspaceMenuItem[]>(provider, 'workspace-menu');
+          menuItems = await call<WorkspaceMenuItem[]>('request', provider, 'workspace-menu');
         } catch (error) {
           if (!closing()) console.error(error);
           continue;
@@ -185,7 +185,7 @@ export async function workspaceSidebar(options: {
             button.disabled = true;
             hint.textContent = '连接中…';
             try {
-              const created = await window.wangcai.request<{ id: string }>(provider, 'workspace-create', { key: item.key });
+              const created = await call<{ id: string }>('request', provider, 'workspace-create', { key: item.key });
               hideRowMenu();
               await refreshRows();
               selectWorkspace(created.id);
@@ -217,7 +217,7 @@ export async function workspaceSidebar(options: {
       items.push(entry('关闭工作区', () => {
         const provider = providerOf(menuRow);
         hideRowMenu();
-        if (provider) void window.wangcai.request(provider, 'workspace-close', { id: menuRow }).then(refreshRows).catch(console.error);
+        if (provider) void call('request', provider, 'workspace-close', { id: menuRow }).then(refreshRows).catch(console.error);
       }));
     }
     if (!items.length) {
@@ -243,7 +243,7 @@ export async function workspaceSidebar(options: {
     tabs.rebind(id);
     showRows();
     tabs.settle(active);
-    void window.wangcai.request(provider, 'workspace-select', { id }).catch(console.error);
+    void call('request', provider, 'workspace-select', { id }).catch(console.error);
   };
 
   const refreshRows = async () => {
@@ -251,7 +251,7 @@ export async function workspaceSidebar(options: {
     if (closing()) return;
     for (const provider of providers) {
       try {
-        rowsByProvider.set(provider, await window.wangcai.request<WorkspaceRow[]>(provider, 'workspaces'));
+        rowsByProvider.set(provider, await call<WorkspaceRow[]>('request', provider, 'workspaces'));
       } catch (error) {
         // A provider that cannot answer keeps the rows it had: a lost reply must not close its workspaces.
         if (!closing()) console.error(error);
@@ -273,7 +273,7 @@ export async function workspaceSidebar(options: {
   };
 
   const saveGroupsAndDraw = () => {
-    void window.wangcai.saveGroups(groups);
+    void call('save-groups', groups);
     showRows();
   };
   // A row joins the group it was filed into, if any, and leaves the one it was in. The write at the end also carries
@@ -330,7 +330,7 @@ export async function workspaceSidebar(options: {
     fileRow(moved, group?.id);
     const provider = providerOf(moved)!;
     if (before !== undefined && providerOf(before) !== provider) return;
-    void window.wangcai.request(provider, 'workspace-move', before === undefined ? { id: moved } : { id: moved, before }).then(refreshRows).catch(console.error);
+    void call('request', provider, 'workspace-move', before === undefined ? { id: moved } : { id: moved, before }).then(refreshRows).catch(console.error);
   };
   // The line under a group's bar, in front of each of its rows, and after the last.
   const groupLine = (group: WorkspaceGroup, before: string | undefined) =>
@@ -459,7 +459,7 @@ export async function workspaceSidebar(options: {
     // focus is.
     const fold = () => {
       group.collapsed = !group.collapsed;
-      void window.wangcai.saveGroups(groups);
+      void call('save-groups', groups);
       list.hidden = group.collapsed;
       bar.setAttribute('aria-expanded', String(!group.collapsed));
     };
