@@ -115,8 +115,9 @@ const DEFAULT_PLUGINS: PluginSpec[] = [
   { id: 'terminal', workspaces: false, repo: 'https://github.com/lengmoXXL/WangCai-terminal' },
 ];
 
-// Written once, when init.ts is missing; from then on the file belongs to the user.
-const PRESET = `// 旺财的启动入口：启动时由 app 直接加载，只放配置与插件注册。
+// Written once, when init.ts is missing; from then on the file belongs to the user. It is built where it is
+// written: the paths of a run are only known once the shell has started Core.
+const preset = () => `// 旺财的启动入口：启动时由 app 直接加载，只放配置与插件注册。
 // 可配字段（就这些，其它字段会被忽略）：
 //   theme   { background, foreground, cursor, selection, surface, overlay, border, muted, accent,
 //             black, red, green, yellow, blue, magenta, cyan, white, brightBlack, brightRed,
@@ -155,7 +156,7 @@ export async function loadConfig(): Promise<{ profile: Profile; plugins: PluginS
   if (!existsSync(source)) {
     try {
       mkdirSync(paths.config, { recursive: true });
-      writeFileSync(source, PRESET);
+      writeFileSync(source, preset());
     } catch (error) {
       console.error('User config:', error);
       return { profile: DEFAULT_PROFILE, plugins: DEFAULT_PLUGINS, network: {} };
