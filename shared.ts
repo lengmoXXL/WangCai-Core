@@ -34,6 +34,8 @@ export const bridge = {
 // is doing. Both are drawn by the page the shell names.
 export const pluginPageTopic = 'plugin-page';
 export const coreStatusTopic = 'core-status';
+// The row Core's own rebuild reports itself under, on the page the plugins report to.
+export const coreId = 'core';
 
 export interface PluginInfo { id: string; config: Record<string, unknown>; ui?: string; css?: string; error?: string; workspaces?: boolean }
 
