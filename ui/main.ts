@@ -1,6 +1,6 @@
-import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
 import type { Profile } from '@lengmoxxl/sdk';
-import { call, previewMessage, previewUrl, uiFont, type PluginInfo } from '../shared';
+import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
+import { call, fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '../shared';
 import { corePage } from './core';
 import { installsPage } from './installs';
 import { sidebarDividers } from './layout';
@@ -17,7 +17,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 async function start() {
-  // The shell's own theme comes from the app, not from a plugin, so it is set before anything is drawn:
+  // The theme comes from the shell, not from a plugin, so it is set before anything is drawn:
   // the plugin page is styled from its first moment even when a plugin still has to be cloned and built.
   const profile = await call<Profile>('config');
   for (const [token, color] of Object.entries(profile.theme)) document.documentElement.style.setProperty(`--wc-${token}`, color);
@@ -29,7 +29,7 @@ async function start() {
     if (fullscreen === true) document.documentElement.style.setProperty('--wc-chrome', '0px');
     else document.documentElement.style.removeProperty('--wc-chrome');
   };
-  window.wangcai.subscribe('fullscreen', applyChrome);
+  window.wangcai.subscribe(fullscreenTopic, applyChrome);
   applyChrome(await call<boolean>('fullscreen'));
   root.append(corePage(), installsPage());
   const main = document.createElement('main');

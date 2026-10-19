@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { compileFunction } from 'node:vm';
 import type { InstallAgent, Machine, Profile } from '@lengmoxxl/sdk';
 import type { Dispose, MainContext } from '@lengmoxxl/sdk/channel';
-import type { PluginInfo } from '../shared';
-import { pluginDataDirectory, pluginDirectory, type PluginSpec } from './config';
+import { pluginsUrl, type PluginEntry, type PluginInfo } from '../shared';
 import { connect } from './machines';
+import { paths } from './paths';
 
 // An 'array' leaf takes whatever list init.ts holds and leaves its entries to the plugin to check.
 function resolveConfig(schema: unknown, values: unknown): Record<string, unknown> {
@@ -30,13 +30,13 @@ function resolveConfig(schema: unknown, values: unknown): Record<string, unknown
 
 export async function loadPlugins(options: {
   resourcesDirectory: string; agent: InstallAgent; profile: Profile;
-  specs: PluginSpec[]; broadcast: (event: string, data: unknown) => void;
+  plugins: PluginEntry[]; broadcast: (event: string, data: unknown) => void;
 }) {
-  const { resourcesDirectory, agent, profile, specs, broadcast } = options;
+  const { resourcesDirectory, agent, profile, plugins: installed, broadcast } = options;
   const connectMachine = (machine: Pick<Machine, 'host' | 'env'>, signal?: AbortSignal) => connect(machine.host
     ? { type: 'ssh', host: machine.host, agent, env: machine.env, signal }
     : { type: 'local', binary: join(resourcesDirectory, 'wangcai'), env: machine.env, signal });
-  const plugins: PluginInfo[] = [];
+  const infos: PluginInfo[] = [];
   const directories = new Map<string, string>();
   const handlers = new Map<string, Map<string, (params: any) => unknown>>();
   const disposers: Dispose[] = [];
@@ -49,29 +49,29 @@ export async function loadPlugins(options: {
   }
   // Plugins mount in id order, not in the order init.ts lists them: a plugin publishes events as it
   // mounts, so what one plugin observes must not depend on the config file.
-  for (const spec of [...specs].sort((a, b) => a.id.localeCompare(b.id))) {
-    const id = spec.id;
+  for (const entry of [...installed].sort((a, b) => a.id.localeCompare(b.id))) {
+    const id = entry.id;
     const info: PluginInfo = { id, config: {} };
-    plugins.push(info);
+    infos.push(info);
     const methods = new Map<string, (params: any) => unknown>();
     handlers.set(id, methods);
     const subscriptions = new Map<string, Set<(data: any) => void | Promise<void>>>();
     channels.add(subscriptions);
     try {
-      const directory = pluginDirectory(spec);
+      const directory = entry.directory;
       const filename = join(directory, 'main.cjs');
       if (!existsSync(filename)) throw new Error('Plugin is not installed');
       if (existsSync(join(directory, 'ui.js'))) {
-        info.ui = `wangcai-plugin://plugins/${encodeURIComponent(id)}/ui.js`;
-        if (existsSync(join(directory, 'ui.css'))) info.css = `wangcai-plugin://plugins/${encodeURIComponent(id)}/ui.css`;
+        info.ui = `${pluginsUrl}${encodeURIComponent(id)}/ui.js`;
+        if (existsSync(join(directory, 'ui.css'))) info.css = `${pluginsUrl}${encodeURIComponent(id)}/ui.css`;
       }
       const module = { exports: {} as { activate(context: MainContext): void | Dispose | Promise<void | Dispose>; config?: unknown } };
       compileFunction(readFileSync(filename, 'utf8'), ['require', 'module', 'exports', '__filename', '__dirname'], { filename })
         .call(module.exports, createRequire(filename), module, module.exports, filename, dirname(filename));
-      const settings = resolveConfig(module.exports.config, spec.config);
+      const settings = resolveConfig(module.exports.config, entry.config);
       info.config = settings;
-      info.workspaces = spec.workspaces;
-      const dataDirectory = pluginDataDirectory(id);
+      info.workspaces = entry.workspaces;
+      const dataDirectory = join(paths.storage, 'data', id);
       mkdirSync(dataDirectory, { recursive: true });
       const context: MainContext = {
         connect: connectMachine,
@@ -108,7 +108,7 @@ export async function loadPlugins(options: {
     }
   }
   return {
-    plugins, directories, publish,
+    plugins: infos, directories, publish,
     request(id: string, method: string, params: unknown) {
       const handler = handlers.get(id)?.get(method);
       if (!handler) throw new Error(`Unknown plugin method: ${id}/${method}`);

@@ -1,10 +1,10 @@
-import type { CoreHost } from './host';
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { agentCommand } from '@lengmoxxl/sdk';
-import type { Network } from './config';
+import type { Network } from '../shared';
+import type { CoreHost } from './host';
 
 const exec = promisify(execFile);
 // Where the agent releases live: each one is under the tag of its own version.
@@ -18,7 +18,7 @@ const TARGETS: Record<string, string> = {
 };
 
 /**
- * What puts the agent this app carries on a machine, which the SDK asks for before it connects there.
+ * What puts the agent the shell carries on a machine, which the SDK asks for before it connects there.
  * The release is fetched and written over ssh stdin, so the machine needs neither curl nor a route to the
  * release host; the write lands through a temporary name, so a broken transfer cannot leave a half binary.
  */
@@ -41,7 +41,6 @@ export function agentInstaller(directory: string, network: Network, download: Co
     let binary: Buffer;
     try {
       const expected = await publishedDigest(`${url}.sha256`, until, download);
-      // The app's own fetch goes through the session, which is where the proxy init.ts names is set.
       const response = await download(url, { signal: until });
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
       binary = Buffer.from(await response.arrayBuffer());
@@ -74,7 +73,7 @@ async function publishedDigest(url: string, signal: AbortSignal, download: CoreH
   return digest.toLowerCase();
 }
 
-/** The version of the agent this app carries, which is the release a machine installs it from. */
+/** The version of the agent the shell carries, which is the release a machine installs it from. */
 async function versionOf(directory: string) {
   const { stdout } = await exec(join(directory, 'wangcai'), ['--version']);
   return stdout.trim().split(' ')[1];

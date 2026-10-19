@@ -1,7 +1,6 @@
-import { call, stageNames, type InstallStage, type InstallStatus } from '../shared';
+import { call, installStatusesTopic, pluginPageTopic, stageNames, type InstallStage, type InstallStatus } from '../shared';
 
-
-/** The plugin page: a card over the app, one row per plugin init.ts lists, and what to do about it. */
+/** The plugin page: a card over the window, one row per plugin init.ts lists, and what to do about it. */
 export function installsPage() {
   const install = (ids: string[]) => { void call('install', ids); };
   const element = document.createElement('section');
@@ -51,7 +50,7 @@ export function installsPage() {
     }
     return item;
   };
-// A plugin with something left to do opens the page; it stays until it is closed, so a failure is read.
+  // A plugin with something left to do opens the page; it stays until it is closed, so a failure is read.
   const draw = () => {
     updateAll.disabled = busy() || !entries('ready').length;
     retryAll.disabled = busy() || !entries('failed').length;
@@ -62,8 +61,8 @@ export function installsPage() {
     statuses = next;
     draw();
   };
-  window.wangcai.subscribe('plugin-page', () => { element.hidden = false; });
-  window.wangcai.subscribe('install-statuses', (statuses) => update(statuses as InstallStatus[]));
-  void call<InstallStatus[]>('installs').then(update);
+  window.wangcai.subscribe(pluginPageTopic, () => { element.hidden = false; });
+  window.wangcai.subscribe(installStatusesTopic, (next) => update(next as InstallStatus[]));
+  void call<InstallStatus[]>('statuses').then(update);
   return element;
 }

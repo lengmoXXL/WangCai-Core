@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 const SOURCES = ['docs', 'sdk', 'examples', 'README.md', 'desktop/main', 'core/main', 'core/ui', 'core/shared.ts', 'desktop/build/icon.png'];
 
-// These are the app's files, not the user's: a new version replaces the snapshot an agent reads.
+// These are the shell's files, not the user's: a new version replaces the snapshot an agent reads.
 export function syncSources(shipped: string, storage: string, version: string) {
   const directory = join(storage, 'src');
   const stamp = join(storage, 'src.version');

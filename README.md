@@ -1,34 +1,42 @@
 # 旺财 Core
 
-旺财的业务内核。**壳**（[WangCai](https://github.com/lengmoXXL/WangCai)）只负责窗口、打包与更新 Core，
-工作区协议、插件管理、机器连接和界面都在这里。因此换业务逻辑不需要发布 App：壳可以从仓库拉取本仓库
-重新构建，装到数据目录里再启动。
+旺财的业务内核。**壳**（[WangCai](https://github.com/lengmoXXL/WangCai)）只负责窗口、打包、更新 Core，
+以及读 `init.ts` 把插件装好；工作区协议、机器连接和界面都在这里。因此换业务逻辑不必重新发布：壳可以
+从仓库拉取本仓库重新构建，装到数据目录里再启动。
 
 ## 边界
 
 ```
 WangCai（壳）                       WangCai-Core（本仓库）
-├─ desktop/main/index.ts           ├─ main/   config plugins manager install
-│    窗口 / preload 桥 / 打包       │          machines resources agent index
-├─ desktop/main/core.ts            ├─ ui/     main tabs layout workspace-sidebar
-│    解析、加载、重建 Core          │          core installs style.css index.html
-└─ desktop/main/preload.ts         └─ shared.ts  桥、协议与插件类型
+├─ desktop/main/index.ts            ├─ main/   plugins machines resources agent
+│    窗口 / preload 桥 / 打包       │          host paths index
+├─ desktop/main/config.ts           ├─ ui/     main tabs layout workspace-sidebar
+│    读 init.ts 与它的插件清单      │          core installs style.css index.html
+├─ desktop/main/plugins.ts          │
+│    克隆、构建、更新插件           │
+├─ desktop/main/spawn.ts            │
+│    git/npm 子进程与代理、mirror   │
+├─ desktop/main/core.ts             │
+│    拉取、构建、加载 Core          │
+└─ desktop/main/preload.ts          └─ shared.ts  桥、协议与插件类型
 ```
 
-本仓库不 import `electron`。凡是 Electron 独有的能力——窗口、会话、系统、协议与 IPC——都通过壳传进来的
+本仓库不 import `electron`。凡是 Electron 独有的能力——窗口、会话、系统、协议——都通过壳传进来的
 `CoreHost`（见 [main/host.ts](main/host.ts)）申请：
 
 | host 上的东西 | 用来做什么 |
 | --- | --- |
-| `paths` | 一次运行读写的位置：`config`（init.ts）、`storage`（插件、状态）、`resources`（agent 二进制）、`node`（构建插件用的 Node） |
+| `paths` | 一次运行读写的位置：`storage`（插件、状态）、`resources`（agent 二进制） |
+| `version` / `sources` | 壳的版本，以及它随包发布的源码目录——快照按版本重写 `storage/src` |
 | `protocol.handle` | 注册插件文件（`wangcai-plugin:`）与预览文档（`wangcai-preview:`）两个协议 |
-| `ipc.handle` | 注册 preload 按 [shared.ts](shared.ts) 里的名字调用的通道 |
-| `fetch` / `setProxy` | 走 App 的 session 出网，代理来自 init.ts 的 `network` |
-| `send` | 向窗口发一个话题（插件安装进度等） |
+| `fetch` / `setProxy` | 走壳的 session 出网，代理来自 init.ts 的 `network` |
+| `send` | 向窗口发一个话题（插件发布的事件等） |
+| `config` | init.ts 读出来的主题与出网方式 |
+| `plugins` / `statuses` / `install` | 壳装好的插件清单、插件页的行，以及行上「更新/重试」要它做的事 |
 | `openExternal` / `reload` / `fullscreen` | 打开 http(s) 链接、重画窗口、读全屏状态 |
+| `updateCore` | 窗口上的「更新核心组件」：拉取、构建并重启 Core 是壳自己的事 |
 
-壳拿回的是 `Core`：窗口上色用的 `background`、本次运行的 `network`（壳自己更新 Core 时要用），以及
-`dispose()`。
+壳拿回的是 `Core`：它面向的契约版本 `contract`、按名字应答窗口的 `dispatch()`，以及 `dispose()`。
 
 ## 构建
 
@@ -44,7 +52,7 @@ npm run typecheck
 
 ## 插件协议
 
-插件是插件仓库里编译好的 `main.cjs`（主进程）和可选的 `ui.js` / `ui.css`（界面），由本仓库克隆、用 App
-自带的 Node 构建并加载。契约（`MainContext` / `UiContext`）在
+插件是插件仓库里编译好的 `main.cjs`（主进程）和可选的 `ui.js` / `ui.css`（界面）：壳克隆、用自带的 Node
+构建，再把目录交给这里加载。契约（`MainContext` / `UiContext`）在
 [@lengmoxxl/sdk](https://www.npmjs.com/package/@lengmoxxl/sdk)，配置说明在
 [WangCai 的文档](https://github.com/lengmoXXL/WangCai/blob/main/docs/plugins.md)。
