@@ -18,8 +18,10 @@ WangCai（壳）                       WangCai-Core（本仓库）
 │    git/npm 子进程与代理、mirror   │
 ├─ desktop/main/core.ts             │
 │    拉取、构建、加载 Core          │
-└─ desktop/main/preload.ts          └─ shared.ts  桥、协议与插件类型
+└─ desktop/main/preload.ts
 ```
+桥接契约——窗口的 scheme、topic、channel、`contractVersion` 与跨桥的类型——在
+[@lengmoxxl/sdk](https://www.npmjs.com/package/@lengmoxxl/sdk) 的 `bridge` 模块，壳与本仓库各取一份。
 
 本仓库不 import `electron`。凡是 Electron 独有的能力——窗口、会话、系统、协议——都通过壳传进来的
 `CoreHost`（见 [main/host.ts](main/host.ts)）申请：
@@ -27,7 +29,7 @@ WangCai（壳）                       WangCai-Core（本仓库）
 | host 上的东西 | 用来做什么 |
 | --- | --- |
 | `paths` | 一次运行读写的位置：`storage`（插件、状态）、`resources`（agent 二进制） |
-| `version` / `sources` | 壳的版本，以及它随包发布的源码目录——快照按版本重写 `storage/src` |
+| `version` / `sources` | 壳的版本，以及它随包发布的源码目录——快照按版本重写 `storage/src`，本仓库这部分从 `storage/core-src` 取 |
 | `protocol.handle` | 注册插件文件（`wangcai-plugin:`）与预览文档（`wangcai-preview:`）两个协议 |
 | `fetch` / `setProxy` | 走壳的 session 出网，代理来自 init.ts 的 `network` |
 | `send` | 向窗口发一个话题（插件发布的事件等） |
@@ -47,8 +49,8 @@ npm run typecheck
 ```
 
 主进程 bundle 自带依赖，壳不需要本仓库的 `node_modules`；窗口页面由壳用 `wangcai-core:` 协议提供。
-壳在打包时把 `dist/` 整个放进 `Resources/core`，运行时也可以拉取本仓库重建成同样形状后放进数据目录，
-两者只差一个目录。
+壳不再随包带上本仓库：启动时数据目录里没有构建好的 Core 就克隆本仓库、用自带的 Node 构建到 `storage/core`
+（`storage/core-src` 是那份 clone），已经有构建就直接用，菜单「更新核心组件」才会再拉一次。
 
 ## 插件协议
 

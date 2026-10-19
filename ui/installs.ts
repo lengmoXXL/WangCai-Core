@@ -1,4 +1,5 @@
-import { call, installStatusesTopic, pluginPageTopic, stageNames, type InstallStage, type InstallStatus } from '../shared';
+import { installStatusesTopic, pluginPageTopic, stageNames, type InstallStage, type InstallStatus } from '@lengmoxxl/sdk/bridge';
+import { call } from './bridge';
 
 /** The plugin page: a card over the window, one row per plugin init.ts lists, and what to do about it. */
 export function installsPage() {

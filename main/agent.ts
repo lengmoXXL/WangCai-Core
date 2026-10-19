@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { agentCommand } from '@lengmoxxl/sdk';
-import type { Network } from '../shared';
+import type { Network } from '@lengmoxxl/sdk/bridge';
 import type { CoreHost } from './host';
 
 const exec = promisify(execFile);

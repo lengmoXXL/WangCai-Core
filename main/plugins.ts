@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { compileFunction } from 'node:vm';
 import type { InstallAgent, Machine, Profile } from '@lengmoxxl/sdk';
 import type { Dispose, MainContext } from '@lengmoxxl/sdk/channel';
-import { pluginsUrl, type PluginEntry, type PluginInfo } from '../shared';
+import { pluginsUrl, type PluginEntry, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import { connect } from './machines';
 import { paths } from './paths';
 

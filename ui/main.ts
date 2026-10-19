@@ -1,6 +1,7 @@
 import type { Profile } from '@lengmoxxl/sdk';
 import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
-import { call, fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '../shared';
+import { fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '@lengmoxxl/sdk/bridge';
+import { call } from './bridge';
 import { corePage } from './core';
 import { installsPage } from './installs';
 import { sidebarDividers } from './layout';

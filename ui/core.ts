@@ -1,4 +1,5 @@
-import { call, corePageTopic, coreStatusTopic, stageNames, type CoreStatus, type InstallStage } from '../shared';
+import { corePageTopic, coreStatusTopic, stageNames, type CoreStatus, type InstallStage } from '@lengmoxxl/sdk/bridge';
+import { call } from './bridge';
 
 /** The Core page: what the shell's own rebuild of Core is doing, and the button that asks for one. */
 export function corePage() {

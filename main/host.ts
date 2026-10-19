@@ -1,5 +1,5 @@
 import type { Profile } from '@lengmoxxl/sdk';
-import type { InstallStatus, Network, PluginEntry } from '../shared';
+import type { InstallStatus, Network, PluginEntry } from '@lengmoxxl/sdk/bridge';
 
 /** What the shell lends Core: where a run keeps its files and the resources it carries, its own version and
  * sources, the Electron capabilities Core answers through, and the config and plugins the shell read and

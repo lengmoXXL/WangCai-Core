@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { TabRecord } from '@lengmoxxl/sdk/channel';
-import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '../shared';
+import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
 import { agentInstaller } from './agent';
 import type { Core, CoreHost } from './host';
 import { paths } from './paths';

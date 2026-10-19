@@ -1,5 +1,5 @@
 import type { TabContent, TabOptions, TabRecord } from '@lengmoxxl/sdk/channel';
-import { call } from '../shared';
+import { call } from './bridge';
 import { clampMenu, dragSource, onDragLeave, type MenuAnchor } from './layout';
 
 export async function sidebarTabs(root: HTMLElement) {

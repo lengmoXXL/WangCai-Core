@@ -1,6 +1,7 @@
 import type { WorkspaceMenuItem, WorkspaceRow, WorkspaceStatus } from '@lengmoxxl/sdk';
 import type { Dispose } from '@lengmoxxl/sdk/channel';
-import { call, type WorkspaceGroup } from '../shared';
+import type { WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
+import { call } from './bridge';
 import { clampMenu, clearDrop, dragSource, onDragLeave } from './layout';
 // A div with a role is not a button, so it answers a click and the keys a button would.
 const onActivate = (element: HTMLElement, action: () => void) => {
