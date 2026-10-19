@@ -130,12 +130,10 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .installs header div { display: flex; gap: 6px; }
 .installs button { padding: 2px 10px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-surface); color: inherit; font: inherit; font-size: 11px; cursor: pointer; }
 .installs button[disabled] { color: var(--wc-muted); cursor: default; }
-/* The Core the shell installs itself is the page's first row, above the plugins and their cards. */
-.installs .core { flex-shrink: 0; display: grid; grid-template-columns: 132px 1fr auto; gap: 4px 12px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--wc-border); font-size: 12px; -webkit-app-region: no-drag; }
+/* Every row of the page reads the same way: the Core the shell installs itself, and the plugins init.ts lists. */
+.installs .core, .installs li { flex-shrink: 0; display: grid; grid-template-columns: 132px 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--wc-border); font-size: 12px; -webkit-app-region: no-drag; }
 .installs .core[hidden] { display: none; }
-.installs ul { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 12px; list-style: none; overflow-y: auto; -webkit-app-region: no-drag; }
-.installs li { display: grid; grid-template-columns: 132px 1fr auto; gap: 4px 12px; padding: 8px 10px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-surface); font-size: 12px; }
-.installs li[data-stage=failed] { border-color: var(--wc-red); }
+.installs ul { flex: 1; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; -webkit-app-region: no-drag; }
 .installs .install-stage { color: var(--wc-muted); }
 .installs [data-stage=ready] .install-stage { color: var(--wc-green); }
 .installs [data-stage=failed] .install-stage { color: var(--wc-red); }
