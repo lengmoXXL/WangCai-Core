@@ -34,9 +34,8 @@ WangCai（壳）                       WangCai-Core（本仓库）
 | `fetch` / `setProxy` | 走壳的 session 出网，代理来自 init.ts 的 `network` |
 | `send` | 向窗口发一个话题（插件发布的事件等） |
 | `config` | init.ts 读出来的主题与出网方式 |
-| `plugins` / `statuses` / `install` | 壳装好的插件清单、插件页的行，以及行上「更新/重试」要它做的事 |
+| `plugins` / `statuses` / `install` | 壳装好的插件清单、插件页要画的行（Core 也在其中），以及行上「更新/重试」要它做的事 |
 | `openExternal` / `reload` / `fullscreen` | 打开 http(s) 链接、重画窗口、读全屏状态 |
-| `updateCore` | 窗口上的「更新核心组件」：拉取、构建并重启 Core 是壳自己的事 |
 
 壳拿回的是 `Core`：它面向的契约版本 `contract`、按名字应答窗口的 `dispatch()`，以及 `dispose()`。
 

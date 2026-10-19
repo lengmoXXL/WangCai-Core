@@ -2,7 +2,6 @@ import type { Profile } from '@lengmoxxl/sdk';
 import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
 import { fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import { call } from './bridge';
-import { corePage } from './core';
 import { installsPage } from './installs';
 import { sidebarDividers } from './layout';
 import { sidebarTabs } from './tabs';
@@ -32,7 +31,7 @@ async function start() {
   };
   window.wangcai.subscribe(fullscreenTopic, applyChrome);
   applyChrome(await call<boolean>('fullscreen'));
-  root.append(corePage(), installsPage());
+  root.append(installsPage());
   const main = document.createElement('main');
   main.className = 'desktop-main';
   const plugins = await call<PluginInfo[]>('plugins');

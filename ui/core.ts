@@ -1,47 +1,34 @@
-import { corePageTopic, coreStatusTopic, stageNames, type CoreStatus, type InstallStage } from '@lengmoxxl/sdk/bridge';
+import { coreId, stageNames, type InstallStage, type InstallStatus } from '@lengmoxxl/sdk/bridge';
 import { call } from './bridge';
 
-/** The Core page: what the shell's own rebuild of Core is doing, and the button that asks for one. */
-export function corePage() {
+/** The block the plugin page holds above its list: what the shell's own install of Core is doing, and the button
+ * that asks for one. */
+export function coreBlock() {
   const element = document.createElement('section');
-  element.className = 'core-page';
-  element.hidden = true;
-  element.setAttribute('aria-label', '核心组件');
-  const heading = document.createElement('h1');
-  heading.textContent = '核心组件';
-  const header = document.createElement('header');
-  const actions = document.createElement('div');
-  const button = (label: string, action: () => void) => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.textContent = label;
-    item.onclick = action;
-    return item;
-  };
-  const update = button('更新', () => { void call('core-update'); });
-  const close = button('关闭', () => { element.hidden = true; });
-  actions.append(update, close);
-  header.append(heading, actions);
-  const body = document.createElement('div');
-  body.className = 'core-body';
-  const stage = document.createElement('p');
-  stage.className = 'core-stage';
+  element.className = 'core';
+  const name = document.createElement('span');
+  name.className = 'install-id';
+  name.textContent = '核心组件';
+  const stage = document.createElement('span');
+  stage.className = 'install-stage';
+  const update = document.createElement('button');
+  update.type = 'button';
+  update.onclick = () => { void call('install', [coreId]); };
   const message = document.createElement('p');
-  message.className = 'core-message';
-  body.append(stage, message);
-  element.append(header, body);
+  message.className = 'install-message';
+  element.append(name, stage, update, message);
   const idle = (value: InstallStage) => value === 'ready' || value === 'failed';
-  let status: CoreStatus | undefined;
-  const draw = () => {
-    // The shell runs one rebuild at a time, so asking for a second one while it works would be dropped there.
-    update.disabled = status !== undefined && !idle(status.stage);
-    stage.textContent = status ? stageNames[status.stage] : '';
-    message.textContent = status?.message ?? '';
-    if (status) stage.dataset.stage = status.stage;
-    // What a rebuild reported stays on screen until it is closed, so a failure is read.
-    if (status && status.stage !== 'ready') element.hidden = false;
+  return {
+    element,
+    /** Draws the row the shell reports for Core, and nothing at all for a shell that reports none. */
+    update(status: InstallStatus | undefined, busy: boolean) {
+      element.hidden = status === undefined;
+      // The shell installs one thing at a time, so asking for a second while it works would be dropped there.
+      update.disabled = busy || (status !== undefined && !idle(status.stage));
+      update.textContent = status?.stage === 'failed' ? '重试' : '更新';
+      stage.textContent = status ? stageNames[status.stage] : '';
+      message.textContent = status?.message ?? '';
+      element.dataset.stage = status?.stage ?? '';
+    },
   };
-  window.wangcai.subscribe(corePageTopic, () => { element.hidden = false; });
-  window.wangcai.subscribe(coreStatusTopic, (next) => { status = next as CoreStatus; draw(); });
-  return element;
 }

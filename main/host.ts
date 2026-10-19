@@ -14,9 +14,9 @@ export interface CoreHost {
   config: { profile: Profile; network: Network };
   /** The plugins the shell installed and this repo loads. */
   plugins(): Promise<PluginEntry[]>;
-  /** The rows the plugin page draws, as they stand now. */
+  /** The rows the plugin page draws — the plugins, and Core itself — as they stand now. */
   statuses(): InstallStatus[];
-  /** Installs or updates the plugins with these ids; answers whether anything was built anew. */
+  /** Installs or updates the rows these ids name, Core included; answers whether anything was built anew. */
   install(ids: string[]): Promise<boolean>;
   /** The shell registers the schemes before it is ready; Core serves what they hand out. */
   protocol: { handle(scheme: string, handler: (request: Request) => Response | Promise<Response>): void };
@@ -28,8 +28,6 @@ export interface CoreHost {
   openExternal(url: string): Promise<void>;
   /** Draws the window again, which is what a plugin that was built anew needs. */
   reload(): void;
-  /** Asks the shell for its own rebuild — fetching, building and restarting Core is the shell's business. */
-  updateCore(): void;
   fullscreen(): boolean;
 }
 

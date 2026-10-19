@@ -73,8 +73,6 @@ export async function activate(host: CoreHost): Promise<Core> {
     plugins: async () => (await loaded()).plugins,
     request: async (id: string, method: string, params: unknown) => (await loaded()).request(id, method, params),
     config: () => profile,
-    // The window's own Core page asks the shell for a rebuild, which the shell reports back on its topic.
-    'core-update': host.updateCore,
     statuses: host.statuses,
     fullscreen: host.fullscreen,
     install: async (ids: string[]) => {

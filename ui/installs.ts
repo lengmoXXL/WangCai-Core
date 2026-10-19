@@ -1,7 +1,9 @@
-import { installStatusesTopic, pluginPageTopic, stageNames, type InstallStage, type InstallStatus } from '@lengmoxxl/sdk/bridge';
+import { coreId, installStatusesTopic, pluginPageTopic, stageNames, type InstallStage, type InstallStatus } from '@lengmoxxl/sdk/bridge';
 import { call } from './bridge';
+import { coreBlock } from './core';
 
-/** The plugin page: a card over the window, one row per plugin init.ts lists, and what to do about it. */
+/** The plugin page: a card over the window, the Core the shell installs itself, one row per plugin init.ts
+ * lists, and what to do about either. */
 export function installsPage() {
   const install = (ids: string[]) => { void call('install', ids); };
   const element = document.createElement('section');
@@ -13,8 +15,10 @@ export function installsPage() {
   const list = document.createElement('ul');
   const header = document.createElement('header');
   const actions = document.createElement('div');
+  const block = coreBlock();
   let statuses: InstallStatus[] = [];
-  const entries = (stage: InstallStage) => statuses.filter((status) => status.stage === stage).map(({ id }) => id);
+  const plugins = () => statuses.filter(({ id }) => id !== coreId);
+  const entries = (stage: InstallStage) => plugins().filter((status) => status.stage === stage).map(({ id }) => id);
   const idle = (stage: InstallStage) => stage === 'ready' || stage === 'failed';
   const busy = () => statuses.some(({ stage }) => !idle(stage));
   const button = (label: string, action: () => void) => {
@@ -29,7 +33,7 @@ export function installsPage() {
   const close = button('关闭', () => { element.hidden = true; });
   actions.append(updateAll, retryAll, close);
   header.append(heading, actions);
-  element.append(header, list);
+  element.append(header, block.element, list);
   const row = ({ id, stage, message }: InstallStatus) => {
     const item = document.createElement('li');
     item.dataset.stage = stage;
@@ -51,11 +55,12 @@ export function installsPage() {
     }
     return item;
   };
-  // A plugin with something left to do opens the page; it stays until it is closed, so a failure is read.
+  // A row with something left to do opens the page; it stays until it is closed, so a failure is read.
   const draw = () => {
     updateAll.disabled = busy() || !entries('ready').length;
     retryAll.disabled = busy() || !entries('failed').length;
-    list.replaceChildren(...statuses.map(row));
+    block.update(statuses.find(({ id }) => id === coreId), busy());
+    list.replaceChildren(...plugins().map(row));
     if (statuses.some(({ stage }) => stage !== 'ready')) element.hidden = false;
   };
   const update = (next: InstallStatus[]) => {
