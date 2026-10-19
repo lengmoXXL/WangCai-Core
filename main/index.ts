@@ -5,7 +5,6 @@ import type { TabRecord } from '@lengmoxxl/sdk/channel';
 import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
 import { agentInstaller } from './agent';
 import type { Core, CoreHost } from './host';
-import { paths } from './paths';
 import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
 
@@ -24,19 +23,20 @@ const previewDocument = () => `<!doctype html><meta charset="utf-8"><script>pare
  * session, the system — is asked for through the host, so this runs against any shell that lends it the same.
  */
 export async function activate(host: CoreHost): Promise<Core> {
-  Object.assign(paths, host.paths);
+  const { storage, resources } = host.paths;
   const { profile, network } = host.config;
   // The proxy init.ts names is set before anything is fetched. Chromium has no remote-DNS scheme: its socks5
   // already resolves out there.
   if (network.proxy) await host.setProxy(network.proxy.replace(/^socks5h:\/\//, 'socks5://'));
-  mkdirSync(paths.storage, { recursive: true });
-  syncSources(host.sources, paths.storage, host.version);
+  mkdirSync(storage, { recursive: true });
+  syncSources(host.sources, storage, host.version);
   // Loaded on the first ask, and again after a plugin was built anew: the window and the protocols all wait
   // for whatever set is current.
   let loading: ReturnType<typeof loadPlugins> | undefined;
   const loaded = () => loading ??= host.plugins().then((plugins) => loadPlugins({
-    resourcesDirectory: paths.resources,
-    agent: agentInstaller(paths.resources, network, host.fetch),
+    storageDirectory: storage,
+    resourcesDirectory: resources,
+    agent: agentInstaller(resources, network, host.fetch),
     profile, plugins, broadcast: host.send,
   }));
   // Serves a loaded plugin's files to the renderer; the directories exist once loading is done.
@@ -66,8 +66,8 @@ export async function activate(host: CoreHost): Promise<Core> {
     writeFileSync(`${path}.tmp`, JSON.stringify(list, null, 2));
     renameSync(`${path}.tmp`, path);
   };
-  const tabsPath = join(paths.storage, 'tabs.json');
-  const groupsPath = join(paths.storage, 'groups.json');
+  const tabsPath = join(storage, 'tabs.json');
+  const groupsPath = join(storage, 'groups.json');
   const methods: Record<string, (...args: any[]) => unknown> = {
     publish: async (event: string, data: unknown) => (await loaded()).publish(event, data),
     plugins: async () => (await loaded()).plugins,

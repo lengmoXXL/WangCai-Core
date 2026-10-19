@@ -9,9 +9,9 @@
 ```
 WangCai（壳）                       WangCai-Core（本仓库）
 ├─ desktop/main/index.ts            ├─ main/   plugins machines resources agent
-│    窗口 / preload 桥 / 打包       │          host paths index
+│    窗口 / preload 桥 / 打包       │          host index
 ├─ desktop/main/config.ts           ├─ ui/     main tabs layout workspace-sidebar
-│    读 init.ts 与它的插件清单      │          core installs style.css index.html
+│    读 init.ts 与它的插件清单      │          bridge installs style.css index.html
 ├─ desktop/main/plugins.ts          │
 │    克隆、构建、更新插件           │
 ├─ desktop/main/spawn.ts            │

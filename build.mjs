@@ -22,4 +22,5 @@ await build({
 
 // What the shell compares a Core it built itself against: a build outside a repository leaves none.
 const head = () => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: source, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } };
-writeFileSync(join(source, 'dist/commit'), head() ? `${head()}\n` : '');
+const revision = head();
+writeFileSync(join(source, 'dist/commit'), revision ? `${revision}\n` : '');

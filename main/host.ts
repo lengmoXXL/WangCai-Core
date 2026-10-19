@@ -22,7 +22,7 @@ export interface CoreHost {
   protocol: { handle(scheme: string, handler: (request: Request) => Response | Promise<Response>): void };
   /** A request of Core's own goes through the shell's session. */
   fetch(url: string, options?: { signal?: AbortSignal }): Promise<Response>;
-  /** One topic to the window, on the channel shared.ts names. */
+  /** One topic to the window. */
   send(topic: string, data: unknown): void;
   setProxy(rules: string): Promise<void>;
   openExternal(url: string): Promise<void>;

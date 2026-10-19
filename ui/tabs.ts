@@ -33,7 +33,9 @@ export async function sidebarTabs(root: HTMLElement) {
   const tabs = new Map<string, Tab>();
   const records = new Map<string, TabRecord>();
   let dragging: string | undefined;
-  for (const record of await call<TabRecord[]>('tabs')) records.set(JSON.stringify([record.plugin, record.workspaceId ?? '', record.id]), record);
+  // The key a tab is known by: the records, the open tabs and a workspace's selected tab align on it.
+  const keyOf = (plugin: string, workspaceId: string | undefined, id: string) => JSON.stringify([plugin, workspaceId ?? '', id]);
+  for (const record of await call<TabRecord[]>('tabs')) records.set(keyOf(record.plugin, record.workspaceId, record.id), record);
 
   const viewPicker = document.createElement('button');
   viewPicker.className = 'view-picker';
@@ -112,7 +114,7 @@ export async function sidebarTabs(root: HTMLElement) {
     for (const [key, tab] of [...tabs]) {
       if (tab.workspaceId !== undefined) continue;
       const record = records.get(key)!;
-      const moved = JSON.stringify([record.plugin, id, record.id]);
+      const moved = keyOf(record.plugin, id, record.id);
       tabs.delete(key);
       tab.workspaceId = id;
       tab.key = moved;
@@ -132,7 +134,7 @@ export async function sidebarTabs(root: HTMLElement) {
 
   const open = (plugin: string, options: TabOptions) => {
     const workspaceId = options.workspaceId ?? active;
-    const key = JSON.stringify([plugin, workspaceId ?? '', options.id]);
+    const key = keyOf(plugin, workspaceId, options.id);
     records.set(key, { plugin, id: options.id, workspaceId });
     void call('save-tabs', [...records.values()]);
     const existing = tabs.get(key);

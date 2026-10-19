@@ -6,7 +6,6 @@ import type { InstallAgent, Machine, Profile } from '@lengmoxxl/sdk';
 import type { Dispose, MainContext } from '@lengmoxxl/sdk/channel';
 import { pluginsUrl, type PluginEntry, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import { connect } from './machines';
-import { paths } from './paths';
 
 // An 'array' leaf takes whatever list init.ts holds and leaves its entries to the plugin to check.
 function resolveConfig(schema: unknown, values: unknown): Record<string, unknown> {
@@ -29,10 +28,10 @@ function resolveConfig(schema: unknown, values: unknown): Record<string, unknown
 }
 
 export async function loadPlugins(options: {
-  resourcesDirectory: string; agent: InstallAgent; profile: Profile;
+  storageDirectory: string; resourcesDirectory: string; agent: InstallAgent; profile: Profile;
   plugins: PluginEntry[]; broadcast: (event: string, data: unknown) => void;
 }) {
-  const { resourcesDirectory, agent, profile, plugins: installed, broadcast } = options;
+  const { storageDirectory, resourcesDirectory, agent, profile, plugins: installed, broadcast } = options;
   const connectMachine = (machine: Pick<Machine, 'host' | 'env'>, signal?: AbortSignal) => connect(machine.host
     ? { type: 'ssh', host: machine.host, agent, env: machine.env, signal }
     : { type: 'local', binary: join(resourcesDirectory, 'wangcai'), env: machine.env, signal });
@@ -71,7 +70,7 @@ export async function loadPlugins(options: {
       const settings = resolveConfig(module.exports.config, entry.config);
       info.config = settings;
       info.workspaces = entry.workspaces;
-      const dataDirectory = join(paths.storage, 'data', id);
+      const dataDirectory = join(storageDirectory, 'data', id);
       mkdirSync(dataDirectory, { recursive: true });
       const context: MainContext = {
         connect: connectMachine,

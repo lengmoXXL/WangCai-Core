@@ -3,6 +3,10 @@ import type { Dispose } from '@lengmoxxl/sdk/channel';
 /** Where a menu hangs, in client coordinates. */
 export type MenuAnchor = { left: number; top: number };
 
+// The room the sidebars must leave the main pane: style.css gives the pane a 240px minimum, and the dividers
+// and the window's padding sit on top of that budget.
+const MAIN_MIN_WIDTH = 248;
+
 /** The two dividers that size the sidebars, dragged or stepped with the arrow keys. */
 export function sidebarDividers(root: HTMLElement, left: HTMLElement, right: HTMLElement, disposers: Dispose[]) {
   const stored = JSON.parse(localStorage.getItem('sidebar-ratios') ?? '{}') as { left?: number; right?: number };
@@ -22,7 +26,7 @@ export function sidebarDividers(root: HTMLElement, left: HTMLElement, right: HTM
     if (side === 'left') left.after(divider); else right.before(divider);
     let painted: number;
     const paint = (requested = root.clientWidth * ratios[side]) => {
-      const maximum = Math.max(minimum, root.clientWidth - (opposite.hidden ? 0 : opposite.getBoundingClientRect().width) - 248);
+      const maximum = Math.max(minimum, root.clientWidth - (opposite.hidden ? 0 : opposite.getBoundingClientRect().width) - MAIN_MIN_WIDTH);
       painted = Math.round(Math.max(minimum, Math.min(maximum, requested)));
       pane.style.width = `${painted}px`;
       divider.hidden = pane.hidden;
