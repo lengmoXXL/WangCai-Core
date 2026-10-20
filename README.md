@@ -28,7 +28,7 @@ WangCai（壳）                       WangCai-Core（本仓库）
 
 | host 上的东西 | 用来做什么 |
 | --- | --- |
-| `paths` | 一次运行读写的位置：`storage`（插件、状态）、`resources`（agent 二进制） |
+| `paths` | 一次运行读写的位置：`storage`（插件、状态，以及这里下载的 agent 二进制） |
 | `version` / `sources` | 壳的版本，以及它随包发布的源码目录——快照按版本重写 `storage/src`，本仓库这部分从 `storage/core-src` 取 |
 | `protocol.handle` | 注册插件文件（`wangcai-plugin:`）与预览文档（`wangcai-preview:`）两个协议 |
 | `fetch` / `setProxy` | 走壳的 session 出网，代理来自 init.ts 的 `network` |
@@ -38,6 +38,10 @@ WangCai（壳）                       WangCai-Core（本仓库）
 | `openExternal` / `reload` / `fullscreen` | 打开 http(s) 链接、重画窗口、读全屏状态 |
 
 壳拿回的是 `Core`：它面向的契约版本 `contract`、按名字应答窗口的 `dispatch()`，以及 `dispose()`。
+
+机器上的 `agent`（`wangcai` 节点）由这里装：[main/agent.ts](main/agent.ts) 钉住一个 `agent-v<版本>`
+release，本机装到 `storage/bin/wangcai`，远端经 SSH 写到 `~/.local/bin/wangcai`，两边都按同名 `.sha256`
+校验。换节点版本改这里的常量即可，不必发壳；壳的 `WANGCAI_AGENT_SOURCE` 让开发运行直接用本机构建的那份。
 
 ## 构建
 

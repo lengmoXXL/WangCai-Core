@@ -2,9 +2,10 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { compileFunction } from 'node:vm';
-import type { InstallAgent, Machine, Profile } from '@lengmoxxl/sdk';
+import type { Machine, Profile } from '@lengmoxxl/sdk';
 import type { Dispose, MainContext } from '@lengmoxxl/sdk/channel';
 import { pluginsUrl, type PluginEntry, type PluginInfo } from '@lengmoxxl/sdk/bridge';
+import type { Agents } from './agent';
 import { connect } from './machines';
 
 // An 'array' leaf takes whatever list init.ts holds and leaves its entries to the plugin to check.
@@ -28,13 +29,13 @@ function resolveConfig(schema: unknown, values: unknown): Record<string, unknown
 }
 
 export async function loadPlugins(options: {
-  storageDirectory: string; resourcesDirectory: string; agent: InstallAgent; profile: Profile;
+  storageDirectory: string; agents: Agents; profile: Profile;
   plugins: PluginEntry[]; broadcast: (event: string, data: unknown) => void;
 }) {
-  const { storageDirectory, resourcesDirectory, agent, profile, plugins: installed, broadcast } = options;
-  const connectMachine = (machine: Pick<Machine, 'host' | 'env'>, signal?: AbortSignal) => connect(machine.host
-    ? { type: 'ssh', host: machine.host, agent, env: machine.env, signal }
-    : { type: 'local', binary: join(resourcesDirectory, 'wangcai'), env: machine.env, signal });
+  const { storageDirectory, agents, profile, plugins: installed, broadcast } = options;
+  const connectMachine = async (machine: Pick<Machine, 'host' | 'env'>, signal?: AbortSignal) => connect(machine.host
+    ? { type: 'ssh', host: machine.host, agent: agents.ssh, env: machine.env, signal }
+    : { type: 'local', binary: await agents.local(), env: machine.env, signal });
   const infos: PluginInfo[] = [];
   const directories = new Map<string, string>();
   const handlers = new Map<string, Map<string, (params: any) => unknown>>();

@@ -23,20 +23,20 @@ const previewDocument = () => `<!doctype html><meta charset="utf-8"><script>pare
  * session, the system — is asked for through the host, so this runs against any shell that lends it the same.
  */
 export async function activate(host: CoreHost): Promise<Core> {
-  const { storage, resources } = host.paths;
+  const { storage } = host.paths;
   const { profile, network } = host.config;
   // The proxy init.ts names is set before anything is fetched. Chromium has no remote-DNS scheme: its socks5
   // already resolves out there.
   if (network.proxy) await host.setProxy(network.proxy.replace(/^socks5h:\/\//, 'socks5://'));
   mkdirSync(storage, { recursive: true });
   syncSources(host.sources, storage, host.version);
+  const agents = agentInstaller(storage, network, host.fetch);
   // Loaded on the first ask, and again after a plugin was built anew: the window and the protocols all wait
   // for whatever set is current.
   let loading: ReturnType<typeof loadPlugins> | undefined;
   const loaded = () => loading ??= host.plugins().then((plugins) => loadPlugins({
     storageDirectory: storage,
-    resourcesDirectory: resources,
-    agent: agentInstaller(resources, network, host.fetch),
+    agents,
     profile, plugins, broadcast: host.send,
   }));
   // Serves a loaded plugin's files to the renderer; the directories exist once loading is done.

@@ -1,11 +1,10 @@
 import type { Profile } from '@lengmoxxl/sdk';
 import type { InstallStatus, Network, PluginEntry } from '@lengmoxxl/sdk/bridge';
 
-/** What the shell lends Core: where a run keeps its files and the resources it carries, its own version and
- * sources, the Electron capabilities Core answers through, and the config and plugins the shell read and
- * installed for it. */
+/** What the shell lends Core: where a run keeps its files, its own version and sources, the Electron
+ * capabilities Core answers through, and the config and plugins the shell read and installed for it. */
 export interface CoreHost {
-  paths: { storage: string; resources: string };
+  paths: { storage: string };
   /** The shell's version, which is what the snapshot an agent reads is stamped with. */
   version: string;
   /** Where the shell's own sources are shipped: what that snapshot is copied from. */
