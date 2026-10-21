@@ -45,6 +45,11 @@ export async function workspaceSidebar(options: {
   const groupOf = (id: string) => groups.find((group) => group.workspaces.includes(id));
   const groupById = (id: string) => groups.find((group) => group.id === id);
   const servedRows = () => providers.flatMap((provider) => rowsByProvider.get(provider)!);
+  // What the list is made of, with what an agent reports left out: a status flip changes a row, not the list.
+  const shapeOf = (rows: WorkspaceRow[]) => JSON.stringify(rows.map(({ status, ...rest }) => rest));
+  const membersOf = (rows: WorkspaceRow[]) => JSON.stringify(rows.map((row) => row.id));
+  let drawnShape = '';
+  let drawnMembers = '';
   const topRows = (rows: WorkspaceRow[]) => rows.filter((row) => !groupOf(row.id));
   // A missing count reads as Infinity, so the slot comparison stays a number comparison.
   const rowsAbove = (group: WorkspaceGroup) => group.after ?? Infinity;
@@ -250,6 +255,8 @@ export async function workspaceSidebar(options: {
   const refreshRows = async () => {
     // The window is going away: a plugin that already disposed itself is not a failed refresh.
     if (closing()) return;
+    // What the rows said before this pull: the only way to tell a status that moved from one that did not.
+    const previous = new Map(servedRows().map((row) => [row.id, row.status ?? 'idle']));
     for (const provider of providers) {
       try {
         rowsByProvider.set(provider, await call<WorkspaceRow[]>('request', provider, 'workspaces'));
@@ -269,8 +276,18 @@ export async function workspaceSidebar(options: {
       }
       active = undefined;
     }
+    // Nothing but a reported status moved: its row is patched in place.
+    const shape = shapeOf(rows);
+    if (shape === drawnShape) {
+      for (const row of rows) if ((row.status ?? 'idle') !== previous.get(row.id)) patchBadge(row);
+      return;
+    }
+    // The list itself changed: it is drawn again, and the tab in front is re-selected only when the workspaces
+    // that exist, or the order they stand in, moved — the rest of a row is not what a tab stands on.
+    const members = membersOf(rows);
+    const sameMembers = members === drawnMembers;
     showRows();
-    tabs.settle(active);
+    if (!sameMembers) tabs.settle(active);
   };
 
   const saveGroupsAndDraw = () => {
@@ -411,6 +428,10 @@ export async function workspaceSidebar(options: {
     }
     return element;
   };
+  const patchBadge = (row: WorkspaceRow) => {
+    const badge = workspaceList.querySelector(`[data-workspace="${CSS.escape(row.id)}"] .agent-state`);
+    badge?.replaceWith(agentBadge(row));
+  };
 
   const workspaceRow = (row: WorkspaceRow) => {
     const element = document.createElement('div');
@@ -494,9 +515,22 @@ export async function workspaceSidebar(options: {
     }
     children.push(listLine({ slot: top.length, above, last: true }));
     workspaceList.replaceChildren(...children);
+    drawnShape = shapeOf(rows);
+    drawnMembers = membersOf(rows);
   };
 
   disposers.push(window.wangcai.subscribe('workspaces', () => void refreshRows()));
+  // What an agent reports arrives on a topic of its own: the row drawn for that workspace is patched where it
+  // stands, with no list asked for again and no tab told it is in front.
+  disposers.push(window.wangcai.subscribe('workspace-status', (value) => {
+    const { id, status } = value as { id: string; status: WorkspaceStatus };
+    const provider = providerOf(id);
+    const rows = provider === undefined ? undefined : rowsByProvider.get(provider);
+    const at = rows?.findIndex((row) => row.id === id) ?? -1;
+    if (!rows || at < 0 || (rows[at].status ?? 'idle') === status) return;
+    rows[at] = { ...rows[at], status };
+    patchBadge(rows[at]);
+  }));
   void refreshRows();
   return { element };
 }
