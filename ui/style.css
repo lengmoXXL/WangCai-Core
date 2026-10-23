@@ -14,19 +14,23 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 /* A hairline overlays the list end to end, so no row background can interrupt it. */
 .sidebar-left { position: relative; padding-top: var(--wc-chrome); background: var(--wc-surface); -webkit-app-region: drag; }
 .sidebar-left::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--wc-border); pointer-events: none; }
-/* The heading shares the rows' left edge, so the column reads as one list. */
-.workspace-header { flex-shrink: 0; display: flex; align-items: center; height: 24px; padding: 0 4px 0 8px; color: var(--wc-muted); font-size: 13px; font-weight: 600; -webkit-app-region: no-drag; }
-.workspaces { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 0 8px; -webkit-app-region: no-drag; }
-/* A bar here would take its width out of the rows, which run to the column hairline; the list still scrolls by wheel. */
+/* The heading starts where a row's glyph does, so the list reads as one column. */
+.workspace-header { flex-shrink: 0; display: flex; align-items: center; height: 32px; padding: 0 16px; color: var(--wc-muted); font-size: 12px; font-weight: 600; -webkit-app-region: no-drag; }
+.workspaces { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 8px 10px; -webkit-app-region: no-drag; }
+/* A bar here would narrow the rows; the list still scrolls by wheel. */
 .workspaces::-webkit-scrollbar { display: none; }
-/* The bar's icon takes the column a row's status mark takes, so a group and the workspaces beside it line up. */
-.workspace, .workspace-group-bar { display: flex; gap: 7px; align-items: center; height: 24px; padding: 0 8px; color: var(--wc-muted); font-size: 12px; cursor: pointer; }
-.workspace-group-bar { font-weight: 600; }
-/* The hairline cannot be a border (layout) or an outline (focus ring), so it is a pseudo-element. */
-.workspace.selected { position: relative; color: var(--wc-foreground); background: var(--wc-background); }
-.workspace.selected::after { content: ''; position: absolute; inset: 0; border: 1px solid var(--wc-border); border-radius: inherit; pointer-events: none; }
+/* A row is a card: the workspace's initial leads, its name sits over the machine, and its state ends it. */
+.workspace { display: flex; gap: 9px; align-items: center; height: 44px; margin-bottom: 2px; padding: 0 8px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.workspace:hover { background: color-mix(in srgb, var(--wc-foreground) 4%, transparent); }
+.workspace.selected { box-shadow: inset 0 0 0 1px var(--wc-border); background: color-mix(in srgb, var(--wc-overlay) 32%, var(--wc-surface)); }
+.workspace .glyph { display: grid; box-sizing: border-box; flex: 0 0 24px; place-items: center; height: 24px; border: 1px solid color-mix(in srgb, var(--wc-foreground) 7%, transparent); border-radius: 6px; background: linear-gradient(160deg, color-mix(in srgb, var(--wc-overlay) 55%, var(--wc-surface)), var(--wc-surface)); color: color-mix(in srgb, var(--wc-foreground) 70%, var(--wc-muted)); font-size: 11px; font-weight: 600; }
+.workspace.selected .glyph { border-color: color-mix(in srgb, var(--wc-accent) 45%, transparent); color: var(--wc-foreground); }
+.workspace .text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
 .workspace .name, .workspace-group-bar .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The status mark leads the row: a dot at rest, a swept ring while the agent works, a check once it is done. */
+.workspace .name { color: color-mix(in srgb, var(--wc-foreground) 82%, var(--wc-muted)); }
+.workspace.selected .name { color: var(--wc-foreground); }
+.workspace .meta { overflow: hidden; color: color-mix(in srgb, var(--wc-muted) 78%, transparent); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+/* The status mark ends the row: a dot at rest, a swept ring while the agent works, a check once it is done. */
 .workspace .agent-state { position: relative; flex-shrink: 0; display: flex; padding: 0; border: 0; background: none; color: var(--wc-muted); cursor: default; }
 .workspace .agent-state svg { fill: currentColor; }
 .workspace .agent-state .ring, .workspace .agent-state .dot, .workspace .agent-state .check { display: none; }
@@ -39,8 +43,10 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace .agent-state[data-state=finished] .check { display: block; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .workspace .agent-state[data-state=finished]:focus-visible { outline: 2px solid var(--wc-accent); outline-offset: 1px; }
 @keyframes wc-agent-sweep { to { transform: rotate(360deg); } }
-/* A row a group holds steps in one level from the bar, and a line inside a group starts where that row's icon does. */
-.workspace-group-rows { --wc-group-indent: 16px; }
+/* A group bar starts where a row's card does, so its twistie sits on the list's edge. */
+.workspace-group-bar { display: flex; gap: 4px; align-items: center; height: 14px; margin-bottom: 2px; padding: 0 8px 0 0; color: var(--wc-muted); font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; cursor: pointer; }
+/* A row a group holds steps in a little from the bar, and a line inside a group starts where that row's glyph does. */
+.workspace-group-rows { --wc-group-indent: 12px; }
 .workspace-group-rows .workspace { padding-left: var(--wc-group-indent); }
 /* A line keeps a pixel of height and sits above the entry it belongs to, so a drag can be aimed at it at all. */
 .workspace-line { position: relative; z-index: 1; height: 1px; }
@@ -57,7 +63,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace-line[data-drop=line]::after { background: var(--wc-accent); }
 .workspace:focus-visible, .workspace-group-bar:focus-visible { outline: 2px solid var(--wc-accent); outline-offset: -2px; }
 /* The twistie is VS Code's codicon chevron-down: filled, not stroked. */
-.workspace-group-bar .chevron { flex-shrink: 0; fill: currentColor; }
+.workspace-group-bar .chevron { flex: 0 0 24px; height: 14px; fill: currentColor; }
 .workspace-group:has(.workspace-group-rows[hidden]) .chevron { transform: rotate(-90deg); }
 /* A bar in the tab strip would take its height out of the tabs, so the strip scrolls with no bar of its own. */
 .sidebar-tabs::-webkit-scrollbar { display: none; }

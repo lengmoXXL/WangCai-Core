@@ -442,10 +442,19 @@ export async function workspaceSidebar(options: {
     element.dataset.workspace = row.id;
     element.tabIndex = 0;
     element.draggable = true;
+    const glyph = document.createElement('span');
+    glyph.className = 'glyph';
+    glyph.textContent = [...row.label.trim()][0]?.toUpperCase() ?? '?';
+    const text = document.createElement('span');
+    text.className = 'text';
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = row.label;
-    element.append(agentBadge(row), name);
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = row.machine;
+    text.append(name, meta);
+    element.append(glyph, text, agentBadge(row));
     onActivate(element, () => {
       // Looking at a workspace is what clears the completion it reported, and only that one.
       if (row.status === 'finished') acknowledged.add(row.id);

@@ -11,7 +11,7 @@ const MAIN_MIN_WIDTH = 248;
 export function sidebarDividers(root: HTMLElement, left: HTMLElement, right: HTMLElement, disposers: Dispose[]) {
   const stored = JSON.parse(localStorage.getItem('sidebar-ratios') ?? '{}') as { left?: number; right?: number };
   const ratios = {
-    left: stored.left ?? 180 / root.clientWidth,
+    left: stored.left ?? 232 / root.clientWidth,
     right: stored.right ?? Math.min(600, root.clientWidth * .4) / root.clientWidth,
   };
   for (const [side, pane, opposite, minimum] of [
