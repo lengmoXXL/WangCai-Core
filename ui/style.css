@@ -22,7 +22,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 /* A row is a card: the workspace's initial leads, its name sits over the machine, and its state ends it. */
 .workspace { display: flex; gap: 9px; align-items: center; height: 44px; margin-bottom: 2px; padding: 0 6px; border-radius: 8px; font-size: 12px; cursor: pointer; }
 .workspace:hover { background: color-mix(in srgb, var(--wc-foreground) 4%, transparent); }
-.workspace.selected { box-shadow: inset 0 0 0 1px var(--wc-border); background: color-mix(in srgb, var(--wc-overlay) 32%, var(--wc-surface)); }
+.workspace.selected { border-radius: 0; box-shadow: inset 0 0 0 1px var(--wc-border); background: var(--wc-background); }
 .workspace .glyph { display: grid; box-sizing: border-box; flex: 0 0 24px; place-items: center; height: 24px; border: 1px solid color-mix(in srgb, var(--wc-foreground) 7%, transparent); border-radius: 6px; background: linear-gradient(160deg, color-mix(in srgb, var(--wc-overlay) 55%, var(--wc-surface)), var(--wc-surface)); color: color-mix(in srgb, var(--wc-foreground) 70%, var(--wc-muted)); font-size: 11px; font-weight: 600; }
 .workspace.selected .glyph { border-color: color-mix(in srgb, var(--wc-accent) 45%, transparent); color: var(--wc-foreground); }
 .workspace .text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
