@@ -15,7 +15,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .sidebar-left { position: relative; padding-top: var(--wc-chrome); background: var(--wc-surface); -webkit-app-region: drag; }
 .sidebar-left::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--wc-border); pointer-events: none; }
 /* The heading starts where a row's glyph does, so the list reads as one column. */
-.workspace-header { flex-shrink: 0; display: flex; align-items: center; height: 32px; padding: 0 7px; color: var(--wc-muted); font-size: 12px; font-weight: 600; -webkit-app-region: no-drag; }
+.workspace-header { flex-shrink: 0; display: flex; align-items: center; height: 32px; padding: 0 7px; color: var(--wc-muted); font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; -webkit-app-region: no-drag; }
 .workspaces { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 1px 10px; -webkit-app-region: no-drag; }
 /* A bar here would narrow the rows; the list still scrolls by wheel. */
 .workspaces::-webkit-scrollbar { display: none; }
