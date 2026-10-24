@@ -14,6 +14,7 @@ const VERSION = '0.1.18';
 const RELEASES = 'https://github.com/lengmoXXL/WangCai/releases/download';
 // A download that stalls fails instead of holding the connect up for good.
 const DOWNLOAD_TIMEOUT = 30_000;
+const DOWNLOAD_ATTEMPTS = 2;
 const TARGETS: Record<string, string> = {
   'Darwin x86_64': 'x86_64-apple-darwin',
   'Darwin arm64': 'aarch64-apple-darwin',
@@ -85,30 +86,41 @@ export function agentInstaller(storage: string, network: Network, download: Core
 async function fetchRelease(target: string, network: Network, download: CoreHost['fetch'], signal?: AbortSignal) {
   const release = `${RELEASES}/agent-v${VERSION}/wangcai-${target}`;
   const url = network.mirror ? `${network.mirror}${release}` : release;
-  const deadline = AbortSignal.timeout(DOWNLOAD_TIMEOUT);
-  const until = signal ? AbortSignal.any([signal, deadline]) : deadline;
-  try {
-    const expected = await publishedDigest(`${url}.sha256`, until, download);
-    const response = await download(url, { signal: until });
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    const binary = Buffer.from(await response.arrayBuffer());
-    const digest = createHash('sha256').update(binary).digest('hex');
-    if (digest !== expected) throw new Error(`sha256 不符：期望 ${expected}，得到 ${digest}`);
-    return binary;
-  } catch (error) {
-    // A cancel is not a download failure: the connect that asked for this was aborted.
-    signal?.throwIfAborted();
-    throw new Error(`下载 agent 失败：${url}\n${error instanceof Error ? error.message : String(error)}`);
+  // GitHub's release edge now and then answers an asset with 400 and serves it on the next call, so one failure is
+  // not yet a machine that cannot be set up.
+  for (let attempt = 1; ; attempt++) {
+    const deadline = AbortSignal.timeout(DOWNLOAD_TIMEOUT);
+    const until = signal ? AbortSignal.any([signal, deadline]) : deadline;
+    try {
+      const expected = await publishedDigest(`${url}.sha256`, until, download);
+      const binary = Buffer.from(await (await answer(url, until, download)).arrayBuffer());
+      const digest = createHash('sha256').update(binary).digest('hex');
+      if (digest !== expected) throw new Error(`sha256 不符：期望 ${expected}，得到 ${digest}`);
+      return binary;
+    } catch (error) {
+      // A cancel is not a download failure: the connect that asked for this was aborted.
+      signal?.throwIfAborted();
+      const failure = `下载 agent 失败：${url}\n${error instanceof Error ? error.message : String(error)}`;
+      if (attempt === DOWNLOAD_ATTEMPTS) throw new Error(failure);
+      console.error(`${failure}\n再试一次`);
+    }
   }
+}
+
+// What an asset answers, or why it was not served: which URL failed, its status, and the first of what came with it,
+// since a request that fails in the network is otherwise a bare number in a toast.
+async function answer(url: string, signal: AbortSignal, download: CoreHost['fetch']) {
+  const response = await download(url, { signal });
+  if (response.ok) return response;
+  const body = (await response.text()).trim().replace(/\s+/g, ' ').slice(0, 200);
+  throw new Error(`${url} 应答 ${response.status}${response.statusText ? ` ${response.statusText}` : ''}${body ? `：${body}` : ''}`);
 }
 
 // Every asset is published beside its digest, from the same prefix: what a mirror answers for one has to
 // agree with the other, so an error page or a half file never reaches the machine.
 async function publishedDigest(url: string, signal: AbortSignal, download: CoreHost['fetch']) {
-  const response = await download(url, { signal });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  const digest = (await response.text()).trim();
-  if (!/^[0-9a-f]{64}$/i.test(digest)) throw new Error('发布目录里的校验值不是 sha256');
+  const digest = (await (await answer(url, signal, download)).text()).trim();
+  if (!/^[0-9a-f]{64}$/i.test(digest)) throw new Error(`发布目录里的校验值不是 sha256：${digest.slice(0, 80)}`);
   return digest.toLowerCase();
 }
 
