@@ -29,6 +29,14 @@ export async function activate(host: CoreHost): Promise<Core> {
   // already resolves out there.
   if (network.proxy) await host.setProxy(network.proxy.replace(/^socks5h:\/\//, 'socks5://'));
   mkdirSync(storage, { recursive: true });
+  const stateDirectory = join(storage, 'data/core');
+  mkdirSync(stateDirectory, { recursive: true });
+  // TODO: remove this migration once no data uses the old storage root.
+  for (const file of ['groups.json', 'tabs.json']) {
+    const legacy = join(storage, file);
+    const current = join(stateDirectory, file);
+    if (!existsSync(current) && existsSync(legacy)) renameSync(legacy, current);
+  }
   syncSources(host.sources, storage, host.version);
   const agents = agentInstaller(storage, network, host.fetch);
   // Loaded on the first ask, and again after a plugin was built anew: the window and the protocols all wait
@@ -66,8 +74,8 @@ export async function activate(host: CoreHost): Promise<Core> {
     writeFileSync(`${path}.tmp`, JSON.stringify(list, null, 2));
     renameSync(`${path}.tmp`, path);
   };
-  const tabsPath = join(storage, 'tabs.json');
-  const groupsPath = join(storage, 'groups.json');
+  const tabsPath = join(stateDirectory, 'tabs.json');
+  const groupsPath = join(stateDirectory, 'groups.json');
   const methods: Record<string, (...args: any[]) => unknown> = {
     publish: async (event: string, data: unknown) => (await loaded()).publish(event, data),
     plugins: async () => (await loaded()).plugins,
