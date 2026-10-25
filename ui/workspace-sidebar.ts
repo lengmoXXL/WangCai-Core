@@ -279,7 +279,7 @@ export async function workspaceSidebar(options: {
     // Nothing but a reported status moved: its row is patched in place.
     const shape = shapeOf(rows);
     if (shape === drawnShape) {
-      for (const row of rows) if ((row.status ?? 'idle') !== previous.get(row.id)) patchBadge(row);
+      for (const row of rows) if ((row.status ?? 'idle') !== previous.get(row.id)) patchState(row);
       return;
     }
     // The list itself changed: it is drawn again, and the tab in front is re-selected only when the workspaces
@@ -397,40 +397,19 @@ export async function workspaceSidebar(options: {
     return element;
   };
 
-  // What an agent in a workspace is doing: the provider reports it with its rows, and a completion the window
-  // has shown is cleared by looking at the row or by the click on its mark, until that workspace reports another
-  // state.
   const acknowledged = new Set<string>();
   const agentStateLabels: Record<WorkspaceStatus, string> = { idle: '空闲', working: '工作中', finished: '已完成' };
-  const agentBadge = (row: WorkspaceRow) => {
+  const paint = (element: HTMLElement, row: WorkspaceRow) => {
     const status = row.status ?? 'idle';
-    // Only a finished row is ever clicked, so any other state leaves nothing of that click to remember.
+    // A remembered finish would hide the next one, so any other state drops it.
     if (status !== 'finished') acknowledged.delete(row.id);
     const drawn = acknowledged.has(row.id) ? 'idle' : status;
-    const finished = drawn === 'finished';
-    const element = document.createElement(finished ? 'button' : 'span');
-    element.className = 'agent-state';
     element.dataset.state = drawn;
-    element.setAttribute('aria-label', `状态：${agentStateLabels[drawn]}`);
-    // Every state carries all three shapes; data-state picks which one the stylesheet draws.
-    element.innerHTML =
-      '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-      '<circle class="ring" cx="8" cy="8" r="5.5"></circle>' +
-      '<circle class="dot" cx="8" cy="8" r="2.5"></circle>' +
-      '<path class="check" d="M3.5 8.5l3 3 6-7"></path>' +
-      '</svg>';
-    if (finished) {
-      element.onclick = (event) => {
-        event.stopPropagation();
-        acknowledged.add(row.id);
-        showRows();
-      };
-    }
-    return element;
+    element.setAttribute('aria-label', `${row.label} · ${row.machine} · ${agentStateLabels[drawn]}`);
   };
-  const patchBadge = (row: WorkspaceRow) => {
-    const badge = workspaceList.querySelector(`[data-workspace="${CSS.escape(row.id)}"] .agent-state`);
-    badge?.replaceWith(agentBadge(row));
+  const patchState = (row: WorkspaceRow) => {
+    const element = workspaceList.querySelector<HTMLElement>(`[data-workspace="${CSS.escape(row.id)}"]`);
+    if (element) paint(element, row);
   };
 
   const workspaceRow = (row: WorkspaceRow) => {
@@ -438,7 +417,6 @@ export async function workspaceSidebar(options: {
     element.className = `workspace${row.id === active ? ' selected' : ''}`;
     element.setAttribute('role', 'tab');
     element.setAttribute('aria-selected', String(row.id === active));
-    element.setAttribute('aria-label', `${row.label} · ${row.machine}`);
     element.dataset.workspace = row.id;
     element.tabIndex = 0;
     element.draggable = true;
@@ -454,7 +432,8 @@ export async function workspaceSidebar(options: {
     meta.className = 'meta';
     meta.textContent = row.machine;
     text.append(name, meta);
-    element.append(glyph, text, agentBadge(row));
+    element.append(glyph, text);
+    paint(element, row);
     onActivate(element, () => {
       // Looking at a workspace is what clears the completion it reported, and only that one.
       if (row.status === 'finished') acknowledged.add(row.id);
@@ -538,7 +517,7 @@ export async function workspaceSidebar(options: {
     const at = rows?.findIndex((row) => row.id === id) ?? -1;
     if (!rows || at < 0 || (rows[at].status ?? 'idle') === status) return;
     rows[at] = { ...rows[at], status };
-    patchBadge(rows[at]);
+    patchState(rows[at]);
   }));
   void refreshRows();
   return { element };

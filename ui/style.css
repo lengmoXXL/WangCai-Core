@@ -19,29 +19,21 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspaces { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 1px 10px; -webkit-app-region: no-drag; }
 /* A bar here would narrow the rows; the list still scrolls by wheel. */
 .workspaces::-webkit-scrollbar { display: none; }
-/* A row is a card: the workspace's initial leads, its name sits over the machine, and its state ends it. */
+/* A row is a card: the workspace's initial leads, and its name sits over the machine. */
 .workspace { display: flex; gap: 9px; align-items: center; height: 36px; padding: 0 6px; font-size: 12px; cursor: pointer; }
 .workspace.selected { box-shadow: inset 0 0 0 1px var(--wc-border); background: var(--wc-background); }
-.workspace .glyph { display: grid; box-sizing: border-box; flex: 0 0 24px; place-items: center; height: 24px; border: 1px solid color-mix(in srgb, var(--wc-foreground) 7%, transparent); border-radius: 6px; background: linear-gradient(160deg, color-mix(in srgb, var(--wc-overlay) 55%, var(--wc-surface)), var(--wc-surface)); color: color-mix(in srgb, var(--wc-foreground) 70%, var(--wc-muted)); font-size: 11px; font-weight: 600; }
+.workspace .glyph { display: grid; box-sizing: border-box; position: relative; flex: 0 0 24px; place-items: center; height: 24px; border: 1px solid color-mix(in srgb, var(--wc-foreground) 7%, transparent); border-radius: 6px; background: linear-gradient(160deg, color-mix(in srgb, var(--wc-overlay) 55%, var(--wc-surface)), var(--wc-surface)); color: color-mix(in srgb, var(--wc-foreground) 70%, var(--wc-muted)); font-size: 11px; font-weight: 600; }
 .workspace.selected .glyph { border-color: color-mix(in srgb, var(--wc-accent) 45%, transparent); color: var(--wc-foreground); }
 .workspace .text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
 .workspace .name, .workspace-group-bar .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace .name { color: color-mix(in srgb, var(--wc-foreground) 82%, var(--wc-muted)); }
 .workspace.selected .name { color: var(--wc-foreground); }
 .workspace .meta { overflow: hidden; color: color-mix(in srgb, var(--wc-muted) 78%, transparent); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-/* The status mark ends the row: a dot at rest, a swept ring while the agent works, a check once it is done. */
-.workspace .agent-state { position: relative; flex-shrink: 0; display: flex; padding: 0; border: 0; background: none; color: var(--wc-muted); cursor: default; }
-.workspace .agent-state svg { fill: currentColor; }
-.workspace .agent-state .ring, .workspace .agent-state .dot, .workspace .agent-state .check { display: none; }
-.workspace .agent-state[data-state=idle] .dot { display: block; }
-.workspace .agent-state[data-state=working] { color: var(--wc-accent); }
-.workspace .agent-state[data-state=working] .ring { display: block; fill: none; stroke: currentColor; stroke-width: 1.4; opacity: .18; }
-/* The same conic light spun inside the ring's stroke: the mark stays put while the light travels. */
-.workspace .agent-state[data-state=working]::before { content: ''; position: absolute; inset: 0; background: conic-gradient(transparent 0 150deg, var(--wc-accent) 344deg, transparent 360deg); -webkit-mask: radial-gradient(closest-side, transparent 57%, #000 60%, #000 78%, transparent 81%); animation: wc-agent-sweep 1.7s linear infinite; }
-.workspace .agent-state[data-state=finished] { color: var(--wc-green); cursor: pointer; }
-.workspace .agent-state[data-state=finished] .check { display: block; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.workspace .agent-state[data-state=finished]:focus-visible { outline: 2px solid var(--wc-accent); outline-offset: 1px; }
-@keyframes wc-agent-sweep { to { transform: rotate(360deg); } }
+@property --wc-sweep { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.workspace[data-state=working] .glyph { border-color: transparent; }
+.workspace[data-state=working] .glyph::after { content: ''; position: absolute; inset: -1px; padding: 1px; border-radius: inherit; background: conic-gradient(from var(--wc-sweep), transparent 0 150deg, var(--wc-accent) 344deg, transparent 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: wc-agent-sweep 1.7s linear infinite; }
+.workspace[data-state=finished] .glyph { border-color: var(--wc-green); }
+@keyframes wc-agent-sweep { to { --wc-sweep: 360deg; } }
 /* A group bar starts where a row's card does, so its twistie sits on the list's edge. */
 .workspace-group-bar { display: flex; gap: 4px; align-items: center; height: 14px; margin-bottom: 2px; padding: 0 6px 0 0; color: var(--wc-muted); font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; cursor: pointer; }
 /* A row a group holds steps in a little from the bar, and a line inside a group starts where that row's glyph does. */
