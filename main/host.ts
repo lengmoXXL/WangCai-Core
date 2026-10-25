@@ -19,11 +19,10 @@ export interface CoreHost {
   install(ids: string[]): Promise<boolean>;
   /** The shell registers the schemes before it is ready; Core serves what they hand out. */
   protocol: { handle(scheme: string, handler: (request: Request) => Response | Promise<Response>): void };
-  /** A request of Core's own goes through the shell's session. */
-  fetch(url: string, options?: { signal?: AbortSignal }): Promise<Response>;
+  /** A plugin's file, read through the shell's session. */
+  fetch(url: string): Promise<Response>;
   /** One topic to the window. */
   send(topic: string, data: unknown): void;
-  setProxy(rules: string): Promise<void>;
   openExternal(url: string): Promise<void>;
   /** Draws the window again, which is what a plugin that was built anew needs. */
   reload(): void;

@@ -31,7 +31,7 @@ WangCai（壳）                       WangCai-Core（本仓库）
 | `paths` | 本次运行读写的位置：`storage`（插件、状态，以及这里下载的 agent 二进制） |
 | `version` / `sources` | 壳的版本，以及它随包发布的源码目录；`storage/src` 快照按壳版本和 Core 的 commit 重写，本仓库的 `main`、`ui` 从 `storage/plugins/core` 复制到 `storage/src/core` |
 | `protocol.handle` | 注册插件文件（`wangcai-plugin:`）与预览文档（`wangcai-preview:`）两个协议 |
-| `fetch` / `setProxy` | 走壳的 session 出网，代理来自 init.ts 的 `network` |
+| `fetch` | 把插件目录里的文件读成响应交给窗口（只取本地文件，不出网） |
 | `send` | 向窗口发一个话题（插件发布的事件等） |
 | `config` | init.ts 读出来的主题与出网方式 |
 | `plugins` / `statuses` / `install` | 壳装好的插件清单、插件页要画的行（Core 也在其中），以及行上的「更新/重试」按钮要 Core 做的事 |
