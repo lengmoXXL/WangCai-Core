@@ -29,7 +29,7 @@ WangCai（壳）                       WangCai-Core（本仓库）
 | host 上的东西 | 用来做什么 |
 | --- | --- |
 | `paths` | 本次运行读写的位置：`storage`（插件、状态，以及这里下载的 agent 二进制） |
-| `version` / `sources` | 壳的版本，以及它随包发布的源码目录；`storage/src` 快照按壳版本和 Core 的 commit 重写，本仓库的 `main`、`ui` 从 `storage/core-src` 复制到 `storage/src/core` |
+| `version` / `sources` | 壳的版本，以及它随包发布的源码目录；`storage/src` 快照按壳版本和 Core 的 commit 重写，本仓库的 `main`、`ui` 从 `storage/plugins/core` 复制到 `storage/src/core` |
 | `protocol.handle` | 注册插件文件（`wangcai-plugin:`）与预览文档（`wangcai-preview:`）两个协议 |
 | `fetch` / `setProxy` | 走壳的 session 出网，代理来自 init.ts 的 `network` |
 | `send` | 向窗口发一个话题（插件发布的事件等） |
@@ -52,8 +52,8 @@ npm run typecheck
 ```
 
 主进程 bundle 自带依赖，壳不需要本仓库的 `node_modules`；窗口页面由壳用 `wangcai-core:` 协议提供。
-壳不再随包带上本仓库：启动时数据目录里没有构建好的 Core 就克隆本仓库、用自带的 Node 构建到 `storage/core`
-（`storage/core-src` 是那份 clone），已经有构建就直接用；需要更新时，插件页里核心组件那一行的「更新」会再拉一次。
+壳不再随包带上本仓库：启动时数据目录里没有构建好的 Core 就克隆本仓库到 `storage/plugins/core`，用自带的
+Node 构建到同一目录的 `dist`，已经有构建就直接用；需要更新时，插件页里核心组件那一行的「更新」会再拉一次。
 
 ## 插件协议
 

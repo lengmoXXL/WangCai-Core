@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 // What an agent reads of the shell, which ships it: the docs, the SDK and the window's own source.
 const SHIPPED = ['docs', 'sdk', 'examples', 'README.md', 'desktop/main', 'desktop/build/icon.png'];
-// What it reads of this repository: the clone the shell installed under the data directory.
+// What it reads of this repository: the clone the shell installed under `plugins/core`.
 const CORE = ['main', 'ui'];
 
 /**
@@ -13,11 +13,11 @@ const CORE = ['main', 'ui'];
 export function syncSources(shipped: string, storage: string, version: string) {
   const directory = join(storage, 'src');
   const stamp = join(storage, 'src.version');
-  const built = join(storage, 'core/commit');
+  const built = join(storage, 'plugins/core/dist/commit');
   const revision = existsSync(built) ? readFileSync(built, 'utf8').trim() : '';
   if (existsSync(stamp) && readFileSync(stamp, 'utf8') === `${version} ${revision}`) return;
   rmSync(directory, { recursive: true, force: true });
   for (const entry of SHIPPED) cpSync(join(shipped, entry), join(directory, entry), { recursive: true });
-  for (const entry of CORE) cpSync(join(storage, 'core-src', entry), join(directory, 'core', entry), { recursive: true });
+  for (const entry of CORE) cpSync(join(storage, 'plugins/core', entry), join(directory, 'core', entry), { recursive: true });
   writeFileSync(stamp, `${version} ${revision}`);
 }
