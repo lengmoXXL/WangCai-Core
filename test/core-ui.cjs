@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { dirname, join } = require('node:path');
-const { openWorkspaceMenu, until } = require('@lengmoxxl/wangcai-testkit');
+const { openWorkspaceMenu, until, withHome } = require('@lengmoxxl/wangcai-testkit');
 
 // The plugins a case launches are mocks: the real ones live in repositories of their own. They are written under one
 // directory per run, which this process removes when it ends.
@@ -104,11 +104,17 @@ const groupNames = (page) => page.locator('.workspace-group-bar').allTextContent
 // Where the window keeps the groups of this home.
 const groupsFile = (home) => join(home, '.local/share/wangcai/data/core/groups.json');
 
-// Writes the groups a case starts with, as a window that closed would have left them.
-const writeGroups = (home, groups) => {
+// A window on the groups a case starts with, as a window that closed would have left them: they are read when the list
+// is built, so they go to the file before the window starts, and the rows are made after it.
+const withGroupRecords = (name, groups, rowCount, body) => withHome(name, workspaceLists(), async ({ home, open }) => {
   mkdirSync(dirname(groupsFile(home)), { recursive: true });
-  writeFileSync(groupsFile(home), JSON.stringify(groups));
-};
+  const records = groups.map((group, at) => ({ ...group, id: `g${at + 1}`, collapsed: false, workspaces: [] }));
+  writeFileSync(groupsFile(home), JSON.stringify(records));
+  const { page } = await open();
+  const errors = watch(page);
+  await workspaces(page, rowCount);
+  return body({ page, errors });
+});
 
 // The names of the groups the window has written down, in the order it reads them again on the next start.
 const storedGroupNames = (home) => JSON.parse(readFileSync(groupsFile(home), 'utf8')).map((group) => group.name);
@@ -143,5 +149,5 @@ const rowId = (locator) => locator.first().evaluate((element) => element.dataset
 
 module.exports = {
   viewPlugin, workspaceLists, workspaces, makeGroup, drawnOrder, untilReading, watch,
-  groupNames, writeGroups, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
+  groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
 };

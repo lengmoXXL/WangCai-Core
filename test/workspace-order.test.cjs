@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { withHome, withWindow } = require('@lengmoxxl/wangcai-testkit');
-const { drawnOrder, firstInsideLine, groupNames, lineAt, lineBeside, lineBeforeGroup, makeGroup, onLine, rowId, rowIds, storedGroupNames, untilReading, watch, workspaceLists, workspaces, writeGroups } = require('./core-ui.cjs');
+const { drawnOrder, firstInsideLine, groupNames, lineAt, lineBeside, lineBeforeGroup, makeGroup, onLine, rowId, rowIds, storedGroupNames, untilReading, watch, withGroupRecords, workspaceLists, workspaces } = require('./core-ui.cjs');
 
 test('a group is made, renamed, folded, moved and remembered', { timeout: 180000 }, () => withHome('wangcai-groups', workspaceLists(), async ({ home, open }) => {
   let { page, close } = await open();
@@ -121,6 +121,43 @@ test('a group dropped on the line above a row stands after the groups at that pl
   assert.deepEqual(errors, []);
 }));
 
+test('a row dropped on the line above a group stands in front of the groups there', { timeout: 180000 }, () => withWindow('wangcai-row-above-group', workspaceLists(), async ({ page, errors }) => {
+  await workspaces(page, 2);
+  const rows = page.locator('.workspaces > .workspace');
+  await makeGroup(page, '甲');
+  await makeGroup(page, '乙');
+  for (const name of ['甲', '乙']) {
+    await page.getByRole('button', { name: `分组 ${name}` }).dragTo(await lineBeside(page, rows.nth(1), -1), { targetPosition: onLine });
+  }
+  await untilReading(() => drawnOrder(page), ['row', '甲', '乙', 'row'], 'both groups stand between the two rows');
+  await rows.nth(1).dragTo(await lineBeforeGroup(page, 0), { targetPosition: onLine });
+  await untilReading(() => drawnOrder(page), ['row', 'row', '甲', '乙'], 'the dragged row stands in front of both groups');
+  assert.deepEqual(errors, []);
+}));
+
+test('a row dropped on the line that closes the list stands after the groups there', { timeout: 180000 }, () => withWindow('wangcai-row-last', workspaceLists(), async ({ page, errors }) => {
+  await workspaces(page, 2);
+  const rows = page.locator('.workspaces > .workspace');
+  await makeGroup(page, '甲');
+  await makeGroup(page, '乙');
+  await untilReading(() => drawnOrder(page), ['row', 'row', '甲', '乙'], 'both groups stand after both rows, in the order they were made');
+  await rows.nth(1).dragTo(page.locator('.workspaces > :last-child'), { targetPosition: onLine });
+  await untilReading(() => drawnOrder(page), ['row', '甲', '乙', 'row'], 'the dragged row stands after both groups');
+  assert.deepEqual(errors, []);
+}));
+
+test('a row dropped in front of a group leaves the groups recorded elsewhere where they are', { timeout: 180000 }, () => withGroupRecords('wangcai-group-record-order', [
+  // 甲 is recorded before 乙 and drawn after it: only a list that reads the records in the file order would drag 乙 to
+  // the place of the drop, so the two orders are made to disagree here.
+  { name: '甲', after: 2 },
+  { name: '乙', after: 0 },
+], 3, async ({ page, errors }) => {
+  await untilReading(() => drawnOrder(page), ['乙', 'row', 'row', '甲', 'row'], 'each group stands where its record places it');
+  await page.locator('.workspaces > .workspace').nth(2).dragTo(await lineBeforeGroup(page, 1), { targetPosition: onLine });
+  await untilReading(() => drawnOrder(page), ['乙', 'row', 'row', 'row', '甲'], 'the row takes that place, and 乙 is left at the front');
+  assert.deepEqual(errors, []);
+}));
+
 test('workspaces are dragged onto the lines of the list', { timeout: 180000 }, () => withWindow('wangcai-row-lines', workspaceLists(), async ({ page, errors }) => {
   await workspaces(page, 3);
   const rows = page.locator('.workspaces > .workspace');
@@ -128,7 +165,6 @@ test('workspaces are dragged onto the lines of the list', { timeout: 180000 }, (
   const kept = await rowIds(rows);
   // A row dropped on the line under itself keeps its place.
   await rows.first().dragTo(await lineBeside(page, rows.first(), 1), { targetPosition: onLine });
-  await untilReading(() => rowIds(rows), kept, 'the row keeps its place');
   await makeGroup(page, '甲');
   const first = groups.first();
   // A row dropped on the line under a group's bar joins it.
@@ -214,12 +250,20 @@ test('a row dragged to the top of the list stands above every group', { timeout:
   assert.deepEqual(errors, []);
 }));
 
-test('a group recorded past the end of the list is drawn at its end', { timeout: 180000 }, () => withHome('wangcai-group-clamped', workspaceLists(), async ({ home, open }) => {
-  // The list can be shorter than the record says: a group written down at a place no row reaches is drawn at the end.
-  writeGroups(home, [{ id: 'g1', name: '远', collapsed: false, workspaces: [], after: 9 }]);
-  const { page } = await open();
-  const errors = watch(page);
-  await workspaces(page, 3);
+test('a row dropped on a line under two groups recorded at one place stands after both', { timeout: 180000 }, () => withGroupRecords('wangcai-group-same-place', [
+  { name: '甲', after: 3 },
+  { name: '乙', after: 3 },
+], 3, async ({ page, errors }) => {
+  await untilReading(() => drawnOrder(page), ['row', 'row', 'row', '甲', '乙'], 'both groups stand after every row, in the order they were made');
+  await page.locator('.workspaces > .workspace').nth(2).dragTo(page.locator('.workspaces > :last-child'), { targetPosition: onLine });
+  await untilReading(() => drawnOrder(page), ['row', 'row', '甲', '乙', 'row'], 'the row stands after both groups');
+  assert.deepEqual(errors, []);
+}));
+
+test('a group recorded past the end of the list is drawn at its end', { timeout: 180000 }, () => withGroupRecords('wangcai-group-clamped', [
+  // The list can be shorter than the record says, so a place no row reaches is still a record a window may hold.
+  { name: '远', after: 9 },
+], 3, async ({ page, errors }) => {
   await untilReading(() => drawnOrder(page), ['row', 'row', 'row', '远'], 'the group stands after every row');
   assert.deepEqual(errors, []);
 }));

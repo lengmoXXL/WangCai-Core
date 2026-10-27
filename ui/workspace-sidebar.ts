@@ -349,6 +349,8 @@ export async function workspaceSidebar(options: {
   // is asked for that place as far as the provider's own order allows.
   const takePlace = (moved: string, before: string | undefined, group?: WorkspaceGroup) => {
     fileRow(moved, group?.id);
+    // A row dropped on the line in front of itself already stands there, and a provider need not know that.
+    if (before === moved) return;
     const provider = providerOf(moved)!;
     if (before !== undefined && providerOf(before) !== provider) return;
     void call('request', provider, 'workspace-move', before === undefined ? { id: moved } : { id: moved, before }).then(refreshRows).catch(console.error);
@@ -357,8 +359,8 @@ export async function workspaceSidebar(options: {
   const groupLine = (group: WorkspaceGroup, before: string | undefined) =>
     dropLine('workspace-line inside', () => draggingRow !== undefined, () => takePlace(takenRow(), before, group));
   // The line between two entries of the list, and the one that closes it.
-  const listLine = (options: { slot: number; above?: WorkspaceGroup; below?: WorkspaceGroup; last?: boolean }) => {
-    const { slot, above, below, last = false } = options;
+  const listLine = (options: { slot: number; below?: WorkspaceGroup; last?: boolean }) => {
+    const { slot, below, last = false } = options;
     // A row stands at the end of the list only when no provider after its own still has a top-level row.
     const endsTheList = (id: string) => {
       const provider = providerOf(id)!;
@@ -390,12 +392,17 @@ export async function workspaceSidebar(options: {
       // The line counts the rows above it, the dragged one included when it is drawn up there: counting again without
       // it is both the place the row takes and what keeps a row dropped on the line under itself where it is.
       const index = top.slice(0, slot).filter((row) => row.id !== moved).length;
-      // The group above is read by the rows its record names: it comes up to the place the row takes so the row stays
-      // under it. The groups after the line are read by the slot they are drawn at, since a group at a slot is drawn in
-      // front of the row that takes the slot: they step down one to open the place.
-      if (above !== undefined && rowsAbove(above) > index) above.after = index;
-      const groupsBelow = below === undefined ? [] : groups.slice(groups.indexOf(below));
-      for (const group of groupsBelow) if (drawSlot(group, top) === index) group.after = index + 1;
+      // A group at a slot is drawn in front of the row that takes the slot, so each group is told where to stand by the
+      // place it is drawn at: one drawn at the line and recorded after the place the row takes comes up to that place,
+      // so it stays in front of the row, and one drawn at that very place steps down, to open it.
+      const underLineFrom = below === undefined ? groups.length : groups.indexOf(below);
+      for (const [recorded, group] of groups.entries()) {
+        const at = drawSlot(group, top);
+        // A group is drawn no further than the rows there are, so a record that lands on the line and one that reaches
+        // past the end look alike here: only the record tells them apart.
+        if (recorded < underLineFrom && at === slot && rowsAbove(group) > index) group.after = index;
+        else if (recorded >= underLineFrom && at === index) group.after = index + 1;
+      }
       takePlace(moved, others[index]?.id);
     });
     return element;
@@ -487,8 +494,7 @@ export async function workspaceSidebar(options: {
     const rows = servedRows();
     const top = topRows(rows);
     const children: HTMLElement[] = [];
-    // The line in front of every entry and the one that closes the list, each told the group it stands under.
-    let above: WorkspaceGroup | undefined;
+    // The line in front of every entry and the one that closes the list.
     for (let slot = 0; slot <= top.length; slot += 1) {
       for (const group of groups) {
         if (drawSlot(group, top) !== slot) continue;
@@ -496,15 +502,13 @@ export async function workspaceSidebar(options: {
         const lastMember = members[members.length - 1];
         // The row that follows the group's last member: a row filed at the end of the group stands in front of it.
         const followedBy = lastMember === undefined ? undefined : rows[rows.indexOf(lastMember) + 1]?.id;
-        children.push(listLine({ slot, above, below: group }), groupBlock(group, members, followedBy));
-        above = group;
+        children.push(listLine({ slot, below: group }), groupBlock(group, members, followedBy));
       }
       if (slot < top.length) {
-        children.push(listLine({ slot, above }), workspaceRow(top[slot]));
-        above = undefined;
+        children.push(listLine({ slot }), workspaceRow(top[slot]));
       }
     }
-    children.push(listLine({ slot: top.length, above, last: true }));
+    children.push(listLine({ slot: top.length, last: true }));
     workspaceList.replaceChildren(...children);
     drawnShape = shapeOf(rows);
     drawnMembers = membersOf(rows);
