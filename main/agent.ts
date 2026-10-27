@@ -9,7 +9,7 @@ import type { Network } from '@lengmoxxl/sdk/bridge';
 
 const exec = promisify(execFile);
 // The agent this Core drives: a release of its own, so a Core update brings a new one without an app release.
-const VERSION = '0.1.18';
+const VERSION = '0.1.19';
 // Where the releases live: each one is under the tag of its own version.
 const RELEASES = 'https://github.com/lengmoXXL/WangCai/releases/download';
 // A download that stalls fails instead of holding the connect up for good; curl counts it in seconds.

@@ -1,6 +1,6 @@
 {
   "name": "@lengmoxxl/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "旺财的业务内核：加载并运行插件、机器连接、工作区与界面",
   "scripts": {
