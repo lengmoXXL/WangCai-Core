@@ -5,12 +5,14 @@
   "description": "旺财的业务内核：加载并运行插件、机器连接、工作区与界面",
   "scripts": {
     "build": "node build.mjs",
+    "test": "node build.mjs && node --test test/*.test.cjs",
     "typecheck": "tsc"
   },
   "dependencies": {
     "@lengmoxxl/sdk": "^0.1.11"
   },
   "devDependencies": {
+    "@lengmoxxl/wangcai-testkit": "^0.1.7",
     "@types/node": "^24.0.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.0",

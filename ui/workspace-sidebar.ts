@@ -53,6 +53,9 @@ export async function workspaceSidebar(options: {
   const topRows = (rows: WorkspaceRow[]) => rows.filter((row) => !groupOf(row.id));
   // A missing count reads as Infinity, so the slot comparison stays a number comparison.
   const rowsAbove = (group: WorkspaceGroup) => group.after ?? Infinity;
+  // The place a group is drawn at, by the top-level rows its record counts and no further than the rows there are,
+  // since the list can be shorter than the record says. Drawing a group and dropping near one both read it here.
+  const drawSlot = (group: WorkspaceGroup, top: WorkspaceRow[]) => Math.min(rowsAbove(group), top.length);
   let draggingRow: string | undefined;
   let draggingGroup: string | undefined;
   // A drag is handled once, so the id it carries is taken before any branch below can return early.
@@ -387,11 +390,12 @@ export async function workspaceSidebar(options: {
       // The line counts the rows above it, the dragged one included when it is drawn up there: counting again without
       // it is both the place the row takes and what keeps a row dropped on the line under itself where it is.
       const index = top.slice(0, slot).filter((row) => row.id !== moved).length;
-      // Both directions read a group by the rows its record names, not by the clamped slot it happens to be drawn at:
-      // the group above comes up to the place the row takes so the row stays under it, and the group below steps down
-      // one slot to open the place between them. These slots are written down by the takePlace call below.
+      // The group above is read by the rows its record names: it comes up to the place the row takes so the row stays
+      // under it. The groups after the line are read by the slot they are drawn at, since a group at a slot is drawn in
+      // front of the row that takes the slot: they step down one to open the place.
       if (above !== undefined && rowsAbove(above) > index) above.after = index;
-      if (below !== undefined && rowsAbove(below) <= index) below.after = index + 1;
+      const groupsBelow = below === undefined ? [] : groups.slice(groups.indexOf(below));
+      for (const group of groupsBelow) if (drawSlot(group, top) === index) group.after = index + 1;
       takePlace(moved, others[index]?.id);
     });
     return element;
@@ -487,8 +491,7 @@ export async function workspaceSidebar(options: {
     let above: WorkspaceGroup | undefined;
     for (let slot = 0; slot <= top.length; slot += 1) {
       for (const group of groups) {
-        // The list can be shorter than the record says, so the slot is clamped to the rows there are.
-        if (Math.min(rowsAbove(group), top.length) !== slot) continue;
+        if (drawSlot(group, top) !== slot) continue;
         const members = rows.filter((row) => groupOf(row.id)?.id === group.id);
         const lastMember = members[members.length - 1];
         // The row that follows the group's last member: a row filed at the end of the group stands in front of it.
