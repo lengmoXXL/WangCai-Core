@@ -3,9 +3,11 @@ import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
 import { fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import { call } from './bridge';
 import { installsPage } from './installs';
+import { bindKeys } from './keymap';
 import { sidebarDividers } from './layout';
 import { sidebarTabs } from './tabs';
 import { workspaceSidebar } from './workspace-sidebar';
+import type { KeymapPayload } from '../main/keymap';
 import './style.css';
 
 const root = document.getElementById('root')!;
@@ -38,7 +40,12 @@ async function start() {
   // Nothing to load fills the pane rather than the window: the page above it is what reported the plugins
   // that are out.
   if (!plugins.length) main.textContent = '未安装插件';
+  // Every bound sequence, from Core, the plugins and init.ts. Read once the plugins have activated, since they add
+  // theirs.
+  disposers.push(bindKeys(await call<KeymapPayload>('keymap')));
   const tabStrip = await sidebarTabs(root);
+  // The topic Core's own `<leader>w` publishes; a plugin's binding may publish it too.
+  window.wangcai.subscribe('core:close-tab', () => tabStrip.closeSelected());
   const providers = plugins.filter((plugin) => plugin.workspaces && !plugin.error).map((plugin) => plugin.id);
   const workspaceColumn = await workspaceSidebar({
     root,

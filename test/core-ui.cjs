@@ -148,6 +148,6 @@ const rowIds = (locator) => locator.evaluateAll((nodes) => nodes.map((node) => n
 const rowId = (locator) => locator.first().evaluate((element) => element.dataset.workspace);
 
 module.exports = {
-  viewPlugin, workspaceLists, workspaces, makeGroup, drawnOrder, untilReading, watch,
+  plugin, viewPlugin, workspaceLists, workspaces, makeGroup, drawnOrder, untilReading, watch,
   groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
 };

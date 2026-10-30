@@ -132,6 +132,17 @@ export async function sidebarTabs(root: HTMLElement) {
     }
   };
 
+  // Closing a tab hands its place to the neighbour beside it; the window's keys close one the same way.
+  const closeTab = (key: string) => {
+    const tab = tabs.get(key);
+    if (!tab) return;
+    const siblings = [...tabs].filter(([, item]) => (item.workspaceId ?? '') === (tab.workspaceId ?? '')).map(([itemKey]) => itemKey);
+    const index = siblings.indexOf(key);
+    removeTab(key);
+    void call('save-tabs', [...records.values()]);
+    if (current === key) select(siblings[index - 1] ?? siblings[index + 1] ?? '');
+  };
+
   const open = (plugin: string, options: TabOptions) => {
     const workspaceId = options.workspaceId ?? active;
     const key = keyOf(plugin, workspaceId, options.id);
@@ -162,13 +173,7 @@ export async function sidebarTabs(root: HTMLElement) {
     panel.setAttribute('aria-label', options.title);
     const tab: Tab = { key, element, button, panel, workspaceId, onClose: options.onClose, content: options.mount(panel) };
     button.onclick = () => select(tab.key);
-    close.onclick = () => {
-      const siblings = [...tabs].filter(([, item]) => (item.workspaceId ?? '') === (tab.workspaceId ?? '')).map(([itemKey]) => itemKey);
-      const index = siblings.indexOf(tab.key);
-      removeTab(tab.key);
-      void call('save-tabs', [...records.values()]);
-      if (current === tab.key) select(siblings[index - 1] ?? siblings[index + 1] ?? '');
-    };
+    close.onclick = () => closeTab(tab.key);
     element.append(button, close);
     element.draggable = true;
     dragSource(element, () => { dragging = tab.key; }, () => { dragging = undefined; }, header);
@@ -211,7 +216,8 @@ export async function sidebarTabs(root: HTMLElement) {
   return {
     element: right,
     rebind: rebindTabs,
-    close: closeGoneTabs,
+    closeGone: closeGoneTabs,
+    closeSelected() { closeTab(current); },
     settle,
     open,
     addView(title: string, open: () => void) {

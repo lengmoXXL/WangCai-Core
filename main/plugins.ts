@@ -7,6 +7,7 @@ import type { Dispose, MainContext } from '@lengmoxxl/sdk/channel';
 import { pluginsUrl, type PluginEntry, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import type { Agents } from './agent';
 import { connect } from './machines';
+import type { Keymap } from './keymap';
 
 // An 'array' leaf takes whatever list init.ts holds and leaves its entries to the plugin to check.
 function resolveConfig(schema: unknown, values: unknown): Record<string, unknown> {
@@ -31,8 +32,9 @@ function resolveConfig(schema: unknown, values: unknown): Record<string, unknown
 export async function loadPlugins(options: {
   storageDirectory: string; agents: Agents; profile: Profile;
   plugins: PluginEntry[]; broadcast: (event: string, data: unknown) => void;
+  keymap: Pick<Keymap, 'add' | 'clear'>;
 }) {
-  const { storageDirectory, agents, profile, plugins: installed, broadcast } = options;
+  const { storageDirectory, agents, profile, plugins: installed, broadcast, keymap } = options;
   const connectMachine = async (machine: Pick<Machine, 'host' | 'env'>, signal?: AbortSignal) => connect(machine.host
     ? { type: 'ssh', host: machine.host, agent: agents.ssh, env: machine.env, signal }
     : { type: 'local', binary: await agents.local(), env: machine.env, signal });
@@ -65,7 +67,7 @@ export async function loadPlugins(options: {
         info.ui = `${pluginsUrl}${encodeURIComponent(id)}/ui.js`;
         if (existsSync(join(directory, 'ui.css'))) info.css = `${pluginsUrl}${encodeURIComponent(id)}/ui.css`;
       }
-      const module = { exports: {} as { activate(context: MainContext): void | Dispose | Promise<void | Dispose>; config?: unknown } };
+      const module = { exports: {} as { activate(context: MainContext): void | Dispose | Promise<void | Dispose>; config?: unknown; keys?: unknown } };
       compileFunction(readFileSync(filename, 'utf8'), ['require', 'module', 'exports', '__filename', '__dirname'], { filename })
         .call(module.exports, createRequire(filename), module, module.exports, filename, dirname(filename));
       const settings = resolveConfig(module.exports.config, entry.config);
@@ -96,6 +98,8 @@ export async function loadPlugins(options: {
         host: { dataDirectory, config: { ...profile, ...settings } },
       };
       const dispose = await module.exports.activate(context);
+      // Read after `activate`, so keys it assigns there are seen.
+      keymap.add(id, module.exports.keys);
       if (dispose) disposers.push(dispose);
       directories.set(id, directory);
     } catch (error) {
@@ -120,6 +124,8 @@ export async function loadPlugins(options: {
       }
       handlers.clear();
       channels.clear();
+      // A plugin's keys live only as long as this load of the plugins does.
+      keymap.clear();
     },
   };
 }

@@ -5,8 +5,12 @@ import type { TabRecord } from '@lengmoxxl/sdk/channel';
 import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
 import { agentInstaller } from './agent';
 import type { Core, CoreHost } from './host';
+import { keymapOf } from './keymap';
 import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
+
+// The keys Core binds by itself.
+const DEFAULT_KEYS = { '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页' } };
 
 // A previewed page is made of inline scripts and remote assets, which the renderer's CSP forbids; serving it
 // from its own scheme gives it a policy of its own, and the sandboxed frame keeps the page off the shell.
@@ -37,12 +41,13 @@ export async function activate(host: CoreHost): Promise<Core> {
   syncSources(host.sources, storage, host.version);
   const agents = agentInstaller(storage, network);
   // Loaded on the first ask, and again after a plugin was built anew: the window and the protocols all wait
-  // for whatever set is current.
+  // for whatever set is current. It takes the keymap made below, whose own calls reach back through this one,
+  // so either has to be usable before the other exists.
   let loading: ReturnType<typeof loadPlugins> | undefined;
   const loaded = () => loading ??= host.plugins().then((plugins) => loadPlugins({
     storageDirectory: storage,
     agents,
-    profile, plugins, broadcast: host.send,
+    profile, plugins, broadcast: host.send, keymap,
   }));
   // Serves a loaded plugin's files to the renderer; the directories exist once loading is done.
   host.protocol.handle(pluginScheme, async (request) => {
@@ -73,11 +78,17 @@ export async function activate(host: CoreHost): Promise<Core> {
   };
   const tabsPath = join(stateDirectory, 'tabs.json');
   const groupsPath = join(stateDirectory, 'groups.json');
+  // The window and the keymap ask for the same two calls.
+  const publish = async (event: string, data?: unknown) => (await loaded()).publish(event, data);
+  const request = async (id: string, method: string, params?: unknown) => (await loaded()).request(id, method, params);
+  const keymap = keymapOf(host.config.keymap, { profile, publish, request, send: host.send, open: host.openExternal }, DEFAULT_KEYS);
   const methods: Record<string, (...args: any[]) => unknown> = {
-    publish: async (event: string, data: unknown) => (await loaded()).publish(event, data),
+    publish,
     plugins: async () => (await loaded()).plugins,
-    request: async (id: string, method: string, params: unknown) => (await loaded()).request(id, method, params),
+    request,
     config: () => profile,
+    keymap: keymap.payload,
+    key: keymap.run,
     statuses: host.statuses,
     fullscreen: host.fullscreen,
     install: async (ids: string[]) => {

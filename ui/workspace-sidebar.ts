@@ -20,7 +20,7 @@ interface WorkspaceTabs {
   /** Every tab that follows no workspace yet starts following this one. */
   rebind(id: string): void;
   /** The tabs whose workspace is not among these ids are closed. */
-  close(ids: string[]): void;
+  closeGone(ids: string[]): void;
   /** The tab state is written down and drawn around the workspace in front. */
   settle(id: string | undefined): void;
 }
@@ -270,7 +270,7 @@ export async function workspaceSidebar(options: {
     }
     if (closing()) return;
     const rows = servedRows();
-    tabs.close(rows.map((row) => row.id));
+    tabs.closeGone(rows.map((row) => row.id));
     if (!rows.some((row) => row.id === active)) {
       const first = rows[0];
       if (first) {
