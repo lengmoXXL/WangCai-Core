@@ -2,33 +2,35 @@ const assert = require('node:assert/strict');
 const { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { dirname, join } = require('node:path');
-const { openWorkspaceMenu, until, withHome } = require('@lengmoxxl/wangcai-testkit');
+const { openWorkspaceMenu, until, viewTabs, withHome } = require('@lengmoxxl/wangcai-testkit');
 
 // The plugins a case launches are mocks: the real ones live in repositories of their own. They are written under one
 // directory per run, which this process removes when it ends.
 let fixtures;
-const plugin = (id, files) => {
+const plugin = (id, files, keys) => {
   fixtures ??= mkdtempSync(join(tmpdir(), 'wangcai-mock-'));
   const directory = join(fixtures, id);
   mkdirSync(directory, { recursive: true });
-  // Core loads a plugin from its main.cjs, so one that only draws a view activates nothing.
-  for (const [name, text] of Object.entries({ 'main.cjs': 'exports.activate = () => {};\n', ...files })) writeFileSync(join(directory, name), text);
+  // Core loads a plugin from its main.cjs, so one that only draws a view activates nothing; the keys a case gives it
+  // are declared there beside `activate`.
+  const main = `${files['main.cjs'] ?? 'exports.activate = () => {};\n'}${keys ? `exports.keys = ${JSON.stringify(keys)};\n` : ''}`;
+  for (const [name, text] of Object.entries({ ...files, 'main.cjs': main })) writeFileSync(join(directory, name), text);
   return { id, directory };
 };
 process.once('exit', () => { if (fixtures) rmSync(fixtures, { recursive: true, force: true }); });
 
 // A sidebar view that draws nothing: a case opens it to give the tab strip something to order.
-const viewPlugin = (id, title) => plugin(id, {
+const viewPlugin = (id, title, keys) => plugin(id, {
   'ui.js': `export const title = ${JSON.stringify(title)};
 export function mount() {}
 export function open(context) { context.host.tabs({ id: ${JSON.stringify(id)}, title: ${JSON.stringify(title)}, mount: () => ({ dispose: () => {} }) }); }
 `,
-});
+}, keys);
 
-// A workspace provider with no agent behind it: its rows are made in the window, and a drop asks it for a place among
-// them, which is the whole of what Core's sidebar reads from a provider.
-const mockWorkspace = () => plugin('workspace', { 'main.cjs': `exports.activate = ({ ui }) => {
-  const rows = [];
+// A workspace provider with no agent behind it: it serves the rows it is given and those the window makes, and a drop
+// asks it for a place among them, which is the whole of what Core's sidebar reads from a provider.
+const mockWorkspace = ({ id = 'workspace', rows = [], keys } = {}) => plugin(id, { 'main.cjs': `exports.activate = ({ ui }) => {
+  const rows = ${JSON.stringify(rows)};
   ui.handle('workspaces', () => rows);
   ui.handle('workspace-menu', () => [{ key: 'local', label: '本机' }]);
   // Core selects a row after it creates one and after a refresh, so this answers those calls where a mock has nothing to
@@ -48,7 +50,7 @@ const mockWorkspace = () => plugin('workspace', { 'main.cjs': `exports.activate 
     else rows.splice(target, 0, row);
   });
 };
-` });
+` }, keys);
 
 // What init.ts lists for a case: the mock provider, and the views a case opens beside it.
 const workspaceLists = (tabs = []) => ({ workspaces: [mockWorkspace()], tabs });
@@ -75,6 +77,11 @@ const makeGroup = async (page, name) => {
 
 // The order the list draws, a group by the name on its bar and a row as 'row'.
 const drawnOrder = (page) => page.locator('.workspaces').locator(':scope > :not(.workspace-line)').evaluateAll((nodes) => nodes.map((node) => node.classList.contains('workspace-group') ? node.querySelector('.workspace-group-bar .name').textContent : 'row'));
+
+const press = async (page, ...keys) => { for (const key of keys) await page.keyboard.press(key); };
+
+// The names on the sidebar tabs, in the order they are drawn.
+const tabNames = (page) => viewTabs(page).locator('[role=tab]').allTextContents();
 
 // Waits until a reading gives this. A click or a drop reaches the list and the record on disk through a round trip that
 // the window's own drawing does not wait for, so the reading is repeated rather than the action; a reading that throws
@@ -148,6 +155,6 @@ const rowIds = (locator) => locator.evaluateAll((nodes) => nodes.map((node) => n
 const rowId = (locator) => locator.first().evaluate((element) => element.dataset.workspace);
 
 module.exports = {
-  plugin, viewPlugin, workspaceLists, workspaces, makeGroup, drawnOrder, untilReading, watch,
+  plugin, viewPlugin, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, tabNames, untilReading, watch,
   groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
 };

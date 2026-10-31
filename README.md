@@ -13,7 +13,8 @@
 一个绑定能做三件事：发事件（`{ event, data }`：订阅它的插件、窗口里订阅它的视图都会收到）、调 `commands` 里的函数
 （`{ command, args }`，`commands` 是 `init.ts` 顶层的一张表，名字对应函数），或跑脚本（`{ run }`）。
 
-发 `core:close-tab` 这个事件就关掉当前标签页；`init.ts` 的绑定和插件的 `keys` 都把 `event` 写成它即可。
+发 `core:close-tab` 这个事件就关掉当前标签页；发 `core:show-view` 带 `data: { plugin }` 则把那个插件的视图切到前台，
+没开就打开（工作区插件是切到它的工作区）。`init.ts` 的绑定和插件的 `keys` 都把 `event` 写成这两个名字之一即可。
 
 `{ command }` 与 `{ run }` 这两种拿到 `{ args, profile, publish, request, send, open }`：`args` 是绑定里写的参数，`profile` 是主题配置，
 `publish` 发事件，`request` 调插件的界面方法（插件用 `ui.handle` 注册的那些），`send` 只往窗口发一条带名字的消息
@@ -30,8 +31,8 @@ Core 自带的键位：
 | --- | --- | --- |
 | `<leader>w` | 关闭当前标签页 | `global` |
 
-焦点在插件页里的输入框或终端时，连按两次 Esc（300 毫秒内）离开焦点，这一页的 local 键随即可用；没有正在等下一个键的
-前缀时，第一下 Esc 照常送给里面的程序，终端里运行的 vim 照收。
+焦点在插件页里的输入框或终端时，在同一个输入框或终端里连按两次 Esc（300 毫秒内）离开焦点，这一页的 local 键随即可用；
+没有正在等下一个键的前缀时，第一下 Esc 照常送给里面的程序，终端里运行的 vim 照收。
 
 写法不同但按出来一样的（`<Leader>f` 与 `<leader>f`）算同一个序列。
 

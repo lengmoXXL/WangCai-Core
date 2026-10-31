@@ -3,7 +3,7 @@ const { writeFileSync } = require('node:fs');
 const { test } = require('node:test');
 const { join } = require('node:path');
 const { openView, until, withHome, withWindow } = require('@lengmoxxl/wangcai-testkit');
-const { plugin, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
+const { plugin, press, tabNames, untilReading, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
 
 // A view that says what a keymap binding published: the probe draws nothing else, so its text shows what the binding
 // did.
@@ -13,12 +13,9 @@ const probeUi = `export function mount(container, context) {
 `;
 const probe = plugin('keys', { 'ui.js': probeUi });
 
-// A plugin that arrives with a key of its own, declared as a static export beside `activate`.
-const provided = plugin('provided', {
-  'main.cjs': `exports.activate = () => {};
-exports.keys = { '<leader>t': { event: 'keys-probe', data: '插件', desc: '插件自己的键' } };
-`,
-  'ui.js': probeUi,
+// A plugin that arrives with a key of its own.
+const provided = plugin('provided', { 'ui.js': probeUi }, {
+  '<leader>t': { event: 'keys-probe', data: '插件', desc: '插件自己的键' },
 });
 
 // The timeout init.ts is given, so a case can wait past it and know a prefix has run out.
@@ -46,18 +43,17 @@ const withProbe = (prefix, { keys, commands }, body) => withHome(prefix, {}, asy
   return body({ page, errors, echo, said });
 });
 
-const press = async (page, ...keys) => { for (const key of keys) await page.keyboard.press(key); };
-
 // Local bindings only answer while the focus is inside a page: `focusPage` clicks in, `leavePage` takes the focus away.
 const focusPage = async (page, plugin) => page.locator(`[data-plugin="${plugin}"]`).click();
 const leavePage = (page) => page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
 
-const focusField = (page) => page.evaluate(() => {
+// An input placed in the probe page without the focus, which the keys take for a field.
+const addField = (page, id) => page.evaluate((id) => {
   const field = document.createElement('input');
-  field.id = 'probe-field';
+  field.id = id;
   document.querySelector('[data-plugin="keys"]').append(field);
-  field.focus();
-});
+}, id);
+const focusField = async (page) => { await addField(page, 'probe-field'); await page.locator('#probe-field').focus(); };
 
 test('keys bound in init.ts reach the window as an event, a script, or a named command', { timeout: 180000 }, () => withProbe('wangcai-keys', {
   keys: `{
@@ -144,6 +140,18 @@ test('two Escapes leave the field, and the page answers to its local keys again'
   // One Escape belongs to the field it was pressed in.
   await press(page, 'Escape');
   assert.equal((await focused()).id, 'probe-field');
+  // A pair is a pair in one field only. Switching fields between the presses costs a round trip on top of the presses
+  // themselves, which can outlast the 300ms a pair gets, so both go out in one go.
+  const ids = ['probe-first-field', 'probe-later-field'];
+  for (const id of ids) await addField(page, id);
+  await page.evaluate((ids) => {
+    for (const id of ids) {
+      const field = document.getElementById(id);
+      field.focus();
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
+  }, ids);
+  assert.equal((await focused()).id, 'probe-later-field');
   // Any other press clears the armed Escape, so the pair below starts a fresh count.
   await press(page, 'a');
   await press(page, 'Escape', 'Escape');
@@ -196,9 +204,8 @@ test('a plugin brings its own keys, and init.ts overrides them', { timeout: 1800
 test('the default <leader>w closes the current tab', { timeout: 180000 }, () => withWindow('wangcai-keys-close', workspaceLists([viewPlugin('files', '文件'), viewPlugin('terminal', '终端')]), async ({ page, errors }) => {
   await openView(page, '文件');
   await openView(page, '终端');
-  const shown = () => page.getByRole('tab').allTextContents();
-  await until(async () => (await shown()).join() === '文件,终端');
+  await untilReading(() => tabNames(page), ['文件', '终端'], 'the two views are open before a tab is closed');
   await press(page, 'Space', 'w');
-  await until(async () => (await shown()).join() === '文件');
+  await untilReading(() => tabNames(page), ['文件'], 'the tab in front is the one that closes');
   assert.deepEqual(errors, []);
 }));

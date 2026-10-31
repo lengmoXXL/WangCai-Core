@@ -527,5 +527,11 @@ export async function workspaceSidebar(options: {
     patchState(rows[at]);
   }));
   void refreshRows();
-  return { element };
+  /** Puts a workspace this provider serves in front, leaving one already in front alone. */
+  const reveal = (provider: string) => {
+    if (active !== undefined && providerOf(active) === provider) return;
+    const row = rowsByProvider.get(provider)?.[0];
+    if (row) selectWorkspace(row.id);
+  };
+  return { element, reveal };
 }

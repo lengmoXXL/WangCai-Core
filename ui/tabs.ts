@@ -74,11 +74,13 @@ export async function sidebarTabs(root: HTMLElement) {
   };
   root.append(toggle, viewMenu);
 
+  // A tab that follows no workspace is drawn in every one of them.
+  const inFront = (tab: Tab) => tab.workspaceId === undefined || tab.workspaceId === active;
   const show = () => {
     right.hidden = !tabs.size;
     toggle.setAttribute('aria-expanded', String(!right.hidden));
     for (const [key, tab] of tabs) {
-      const visible = tab.workspaceId === undefined || tab.workspaceId === active;
+      const visible = inFront(tab);
       const isCurrent = key === current;
       tab.element.hidden = !visible;
       tab.button.setAttribute('aria-selected', String(isCurrent));
@@ -190,7 +192,7 @@ export async function sidebarTabs(root: HTMLElement) {
       event.preventDefault();
       const source = dragging!;
       const after = element.dataset.drop === 'after';
-      const visible = [...tabs].filter(([, item]) => item.workspaceId === undefined || item.workspaceId === active);
+      const visible = [...tabs].filter(([, item]) => inFront(item));
       const before = after ? visible[visible.findIndex(([item]) => item === tab.key) + 1]?.[0] : tab.key;
       const reorder = <T>(map: Map<string, T>) => {
         if (source === before) return;
@@ -220,6 +222,13 @@ export async function sidebarTabs(root: HTMLElement) {
     rebind: rebindTabs,
     closeGone: closeGoneTabs,
     closeSelected() { closeTab(current); },
+    /** Brings an open tab of this plugin, in the workspace in front, to the front; false when there is none. */
+    reveal(plugin: string) {
+      const picked = [...tabs].find(([key, tab]) => records.get(key)!.plugin === plugin && inFront(tab));
+      if (!picked) return false;
+      select(picked[0]);
+      return true;
+    },
     settle,
     open,
     addView(title: string, open: () => void) {

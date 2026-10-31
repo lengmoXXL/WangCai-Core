@@ -161,7 +161,7 @@ function trieOf(bindings: KeymapPayload['bindings'], leader: Leader | undefined)
  * The window's side of the keymap. It picks the keys a press is judged by — the global ones, and inside a page those
  * plus the local keys that answer there — matches the press against them, and hands a whole match back to the main
  * process, where the bindings run. A prefix that could still grow waits out the timeout before it is run on its own,
- * and while it waits a hint lists what the next key may be. Two Escapes in a row in a field leave it instead, so that
+ * and while it waits a hint lists what the next key may be. Two Escapes in a row in one field leave it instead, so that
  * page's local keys answer again; with no prefix waiting for its next key, the first of the two still reaches whatever
  * the field holds.
  */
@@ -191,7 +191,7 @@ export function bindKeys(config: KeymapPayload) {
   document.body.append(hint);
   let pending: { node: Node; path: string[] } | undefined;
   let timer = 0;
-  let escapedAt = 0;
+  let escaped: { target: Element; at: number } | undefined;
   const clear = () => {
     clearTimeout(timer);
     pending = undefined;
@@ -238,19 +238,25 @@ export function bindKeys(config: KeymapPayload) {
     const field = isEditable(event.target);
     const page = pageOf(event.target);
     const current = pending;
-    if (current && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); clear(); return; }
+    if (current && event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      clear();
+      escaped = undefined;
+      return;
+    }
     if (event.key === 'Escape' && field) {
-      if (escapedAt && event.timeStamp - escapedAt <= LEAVE_FIELD) {
+      if (escaped?.target === event.target && event.timeStamp - escaped.at <= LEAVE_FIELD) {
         event.preventDefault();
         event.stopPropagation();
-        escapedAt = 0;
+        escaped = undefined;
         // The page is what the local keys are matched by, so the focus goes there.
         page?.focus();
         return;
       }
-      escapedAt = event.timeStamp;
+      escaped = { target: event.target as Element, at: event.timeStamp };
     } else {
-      escapedAt = 0;
+      escaped = undefined;
     }
     // Only a first press picks the page's keys or the global ones; after that the sequence stays in the trie it
     // started in.

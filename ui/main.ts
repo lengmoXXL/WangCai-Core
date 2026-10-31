@@ -57,7 +57,7 @@ async function start() {
   root.append(workspaceColumn.element, main, tabStrip.element);
   sidebarDividers(root, workspaceColumn.element, tabStrip.element, disposers);
 
-  const opens = new Map<string, (record: TabRecord) => Promise<void>>();
+  const opens = new Map<string, (record?: TabRecord) => Promise<void>>();
   for (const plugin of plugins) {
     if (!plugin.error && !plugin.ui) continue;
     const container = document.createElement('section');
@@ -118,10 +118,11 @@ async function start() {
       if (module.open) container.hidden = true;
       dispose = await module.mount(container, context);
       if (module.open) {
-        tabStrip.addView(module.title ?? plugin.id, () => { void module.open(context); });
-        opens.set(plugin.id, async (record) => {
+        const open = async (record?: TabRecord) => {
           try { await module.open(context, record); } catch (error) { await fail(error); }
-        });
+        };
+        tabStrip.addView(module.title ?? plugin.id, () => { void open(); });
+        opens.set(plugin.id, open);
       }
       const cleanup = async () => {
         for (const off of subscriptions) off();
@@ -134,6 +135,14 @@ async function start() {
       await fail(error);
     }
   }
+  window.wangcai.subscribe('core:show-view', (value) => {
+    const plugin = (value as { plugin?: unknown } | undefined)?.plugin;
+    if (typeof plugin !== 'string') return;
+    if (tabStrip.reveal(plugin)) return;
+    const open = opens.get(plugin);
+    if (open) void open();
+    else workspaceColumn.reveal(plugin);
+  });
   await tabStrip.restore((record) => opens.get(record.plugin)?.(record));
   disposers.push(tabStrip.dispose);
 }
