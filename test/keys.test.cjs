@@ -52,6 +52,13 @@ const press = async (page, ...keys) => { for (const key of keys) await page.keyb
 const focusPage = async (page, plugin) => page.locator(`[data-plugin="${plugin}"]`).click();
 const leavePage = (page) => page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
 
+const focusField = (page) => page.evaluate(() => {
+  const field = document.createElement('input');
+  field.id = 'probe-field';
+  document.querySelector('[data-plugin="keys"]').append(field);
+  field.focus();
+});
+
 test('keys bound in init.ts reach the window as an event, a script, or a named command', { timeout: 180000 }, () => withProbe('wangcai-keys', {
   keys: `{
     '<leader>pe': { event: 'keys-probe', data: '事件到了', desc: '发事件' },
@@ -94,12 +101,7 @@ test('a field keeps its own keys, unless the binding asks for them', { timeout: 
     '<leader>pe': { event: 'keys-probe', data: '窗口' },
     '<leader>pi': { event: 'keys-probe', data: '输入框', insert: true },
   }` }, async ({ page, echo, said, errors }) => {
-  await page.evaluate(() => {
-    const field = document.createElement('input');
-    field.id = 'probe-field';
-    document.querySelector('[data-plugin="keys"]').append(field);
-    field.focus();
-  });
+  await focusField(page);
   await press(page, 'Space', 'p', 'e');
   // The sequence broke, so `e` belongs to the field; wait past the timeout to see the window binding stay quiet.
   await new Promise((resolve) => setTimeout(resolve, TIMEOUT + 300));
@@ -128,6 +130,26 @@ test('a local binding answers only inside a page, a global one wherever the focu
   await said('局部');
   await press(page, 'Space', 'g', 'l');
   await said('全局');
+  assert.deepEqual(errors, []);
+}));
+
+test('two Escapes leave the field, and the page answers to its local keys again', { timeout: 180000 }, () => withProbe('wangcai-keys-escape', { keys: `{
+    '<leader>lo': { event: 'keys-probe', data: '局部' },
+  }` }, async ({ page, said, errors }) => {
+  await focusField(page);
+  const focused = () => page.evaluate(() => ({
+    id: document.activeElement?.id ?? '',
+    page: document.activeElement?.dataset?.plugin ?? '',
+  }));
+  // One Escape belongs to the field it was pressed in.
+  await press(page, 'Escape');
+  assert.equal((await focused()).id, 'probe-field');
+  // Any other press clears the armed Escape, so the pair below starts a fresh count.
+  await press(page, 'a');
+  await press(page, 'Escape', 'Escape');
+  assert.equal((await focused()).page, 'keys');
+  await press(page, 'Space', 'l', 'o');
+  await said('局部');
   assert.deepEqual(errors, []);
 }));
 

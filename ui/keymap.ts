@@ -126,14 +126,14 @@ function chordsOfEvent(event: KeyboardEvent): Chord[] {
   return [{ ctrl, alt, shift: event.shiftKey, meta, key: event.key }];
 }
 
-// The plugin whose page holds the focus, read from the key event's own target.
-function focusedPlugin(target: EventTarget | null) {
-  const page = target instanceof Element ? target.closest<HTMLElement>('[data-plugin]') : null;
-  return page?.dataset.plugin;
-}
+// The page a key event's target sits in, if any: a plugin's own container or one of its sidebar panels.
+const pageOf = (target: EventTarget | null) => target instanceof Element ? target.closest<HTMLElement>('[data-plugin]') : null;
 
-// A press goes to the field, not the window: only bindings with `insert: true` are matched while a field has the keys.
+// Whether a field holds the keys: matching then takes only the bindings with `insert: true`.
 const isEditable = (target: EventTarget | null) => target instanceof Element && !!target.closest('input, textarea, [contenteditable=""], [contenteditable="true"]');
+
+// The most two Escapes can be apart and still leave the field.
+const LEAVE_FIELD = 300;
 
 function trieOf(bindings: KeymapPayload['bindings'], leader: Leader | undefined) {
   const root: Node = { children: new Map(), label: '' };
@@ -161,7 +161,9 @@ function trieOf(bindings: KeymapPayload['bindings'], leader: Leader | undefined)
  * The window's side of the keymap. It picks the keys a press is judged by — the global ones, and inside a page those
  * plus the local keys that answer there — matches the press against them, and hands a whole match back to the main
  * process, where the bindings run. A prefix that could still grow waits out the timeout before it is run on its own,
- * and while it waits a hint lists what the next key may be.
+ * and while it waits a hint lists what the next key may be. Two Escapes in a row in a field leave it instead, so that
+ * page's local keys answer again; with no prefix waiting for its next key, the first of the two still reaches whatever
+ * the field holds.
  */
 export function bindKeys(config: KeymapPayload) {
   const leader = leaderOf(config.leader);
@@ -175,13 +177,13 @@ export function bindKeys(config: KeymapPayload) {
   // A page's tries are built the first time it is focused and kept for the rest of the session.
   const pages = new Map<string, Tries>();
   const pageFor = (plugin: string) => {
-    let page = pages.get(plugin);
-    if (!page) {
+    let tries = pages.get(plugin);
+    if (!tries) {
       const local = config.bindings.filter((binding) => binding.scope === 'local' && (binding.plugin === undefined || binding.plugin === plugin));
-      page = triesOf([...globals, ...local]);
-      pages.set(plugin, page);
+      tries = triesOf([...globals, ...local]);
+      pages.set(plugin, tries);
     }
-    return page;
+    return tries;
   };
   const hint = document.createElement('div');
   hint.className = 'which-key';
@@ -189,6 +191,7 @@ export function bindKeys(config: KeymapPayload) {
   document.body.append(hint);
   let pending: { node: Node; path: string[] } | undefined;
   let timer = 0;
+  let escapedAt = 0;
   const clear = () => {
     clearTimeout(timer);
     pending = undefined;
@@ -224,20 +227,34 @@ export function bindKeys(config: KeymapPayload) {
     timer = window.setTimeout(binding ? () => fire(binding.id) : clear, config.timeout);
     paint(node, path);
   };
-  const rootFor = (event: KeyboardEvent) => {
-    const page = focusedPlugin(event.target);
-    const tries = page === undefined ? globalTries : pageFor(page);
-    return isEditable(event.target) ? tries.field : tries.plain;
+  const triesFor = (plugin: string | undefined, field: boolean) => {
+    const tries = plugin === undefined ? globalTries : pageFor(plugin);
+    return field ? tries.field : tries.plain;
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.isComposing || event.repeat) return;
     const candidates = chordsOfEvent(event).map(chordKey);
     if (!candidates.length) return;
+    const field = isEditable(event.target);
+    const page = pageOf(event.target);
     const current = pending;
     if (current && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); clear(); return; }
+    if (event.key === 'Escape' && field) {
+      if (escapedAt && event.timeStamp - escapedAt <= LEAVE_FIELD) {
+        event.preventDefault();
+        event.stopPropagation();
+        escapedAt = 0;
+        // The page is what the local keys are matched by, so the focus goes there.
+        page?.focus();
+        return;
+      }
+      escapedAt = event.timeStamp;
+    } else {
+      escapedAt = 0;
+    }
     // Only a first press picks the page's keys or the global ones; after that the sequence stays in the trie it
     // started in.
-    const level = current ? current.node.children : rootFor(event).children;
+    const level = current ? current.node.children : triesFor(page?.dataset.plugin, field).children;
     for (const pressed of candidates) {
       const next = level.get(pressed);
       if (!next) continue;
