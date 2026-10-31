@@ -3,7 +3,7 @@ const { writeFileSync } = require('node:fs');
 const { test } = require('node:test');
 const { join } = require('node:path');
 const { openView, until, withHome, withWindow } = require('@lengmoxxl/wangcai-testkit');
-const { plugin, press, tabNames, untilReading, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
+const { plugin, press, untilTabs, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
 
 // A view that says what a keymap binding published: the probe draws nothing else, so its text shows what the binding
 // did.
@@ -81,9 +81,9 @@ test('a prefix waits out the timeout, and the hint lists what may follow', { tim
   }` }, async ({ page, said, errors }) => {
   const hint = page.locator('.which-key');
   await focusPage(page, 'keys');
-  await page.keyboard.press('Space');
+  await press(page, 'Space');
   await until(async () => /退出/.test(await hint.textContent()));
-  await page.keyboard.press('Escape');
+  await press(page, 'Escape');
   await until(() => hint.isHidden());
   // Two presses in a row are `gg`; a single `g` lands only once the timeout runs out.
   await press(page, 'g', 'g');
@@ -140,25 +140,25 @@ test('two Escapes leave the field, and the page answers to its local keys again'
   // One Escape belongs to the field it was pressed in.
   await press(page, 'Escape');
   assert.equal((await focused()).id, 'probe-field');
-  // A pair is a pair in one field only. Switching fields between the presses costs a round trip on top of the presses
-  // themselves, which can outlast the 300ms a pair gets, so both go out in one go.
+  // A pair is a pair in one field only.
   const ids = ['probe-first-field', 'probe-later-field'];
   for (const id of ids) await addField(page, id);
-  await page.evaluate((ids) => {
-    for (const id of ids) {
-      const field = document.getElementById(id);
-      field.focus();
-      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  // Two presses are a pair only if they land inside 300ms, and a round trip between them can outlast that, so both go out
+  // in one go.
+  await page.evaluate((names) => {
+    for (const id of names) {
+      const input = document.getElementById(id);
+      input.focus();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     }
   }, ids);
-  assert.equal((await focused()).id, 'probe-later-field');
+  assert.equal((await focused()).id, ids[1]);
   // Any other press clears the armed Escape, so the pair below starts a fresh count.
   await press(page, 'a');
-  await page.evaluate(() => {
-    for (let index = 0; index < 2; index += 1) {
-      document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    }
-  });
+  await page.evaluate((id) => {
+    const input = document.getElementById(id);
+    for (let index = 0; index < 2; index += 1) input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  }, ids[1]);
   assert.equal((await focused()).page, 'keys');
   await press(page, 'Space', 'l', 'o');
   await said('局部');
@@ -208,8 +208,8 @@ test('a plugin brings its own keys, and init.ts overrides them', { timeout: 1800
 test('the default <leader>w closes the current tab', { timeout: 180000 }, () => withWindow('wangcai-keys-close', workspaceLists([viewPlugin('files', '文件'), viewPlugin('terminal', '终端')]), async ({ page, errors }) => {
   await openView(page, '文件');
   await openView(page, '终端');
-  await untilReading(() => tabNames(page), ['文件', '终端'], 'the two views are open before a tab is closed');
+  await untilTabs(page, ['文件', '终端'], 'the two views are open before a tab is closed');
   await press(page, 'Space', 'w');
-  await untilReading(() => tabNames(page), ['文件'], 'the tab in front is the one that closes');
+  await untilTabs(page, ['文件'], 'the tab in front is the one that closes');
   assert.deepEqual(errors, []);
 }));

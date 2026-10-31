@@ -27,7 +27,7 @@ export function open(context) { context.host.tabs({ id: ${JSON.stringify(id)}, t
 `,
 }, keys);
 
-// The row a mock provider serves a workspace as; a case that seeds one gives its id, and the create path supplies the id.
+// The row a mock provider serves a workspace as; a case that seeds a row passes the id in.
 const mockWorkspaceRow = (id = '') => ({ id, label: '~', machine: 'local', running: true });
 
 // A workspace provider with no agent behind it: it serves the rows it is given and those the window makes, and a drop
@@ -100,6 +100,9 @@ const untilReading = async (read, want, message) => {
   assert.equal(got, want.join(), message);
 };
 
+// Waits until the sidebar tabs are these, in this order.
+const untilTabs = (page, want, message) => untilReading(() => tabNames(page), want, message);
+
 // What the window reports while it runs: an exception the page throws, and anything it logs as an error. A mock that
 // answers one method too few reaches the case as `Unknown plugin method` on the console and nowhere else, so a case that
 // opens a window more than once collects into one list here and judges it at the end.
@@ -159,6 +162,6 @@ const rowIds = (locator) => locator.evaluateAll((nodes) => nodes.map((node) => n
 const rowId = (locator) => locator.first().evaluate((element) => element.dataset.workspace);
 
 module.exports = {
-  plugin, viewPlugin, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, tabNames, untilReading, watch,
+  plugin, viewPlugin, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, tabNames, untilReading, untilTabs, watch,
   groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
 };
