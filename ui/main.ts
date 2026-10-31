@@ -138,10 +138,18 @@ async function start() {
   window.wangcai.subscribe('core:show-view', (value) => {
     const plugin = (value as { plugin?: unknown } | undefined)?.plugin;
     if (typeof plugin !== 'string') return;
-    if (tabStrip.reveal(plugin)) return;
-    const open = opens.get(plugin);
-    if (open) void open();
-    else workspaceColumn.reveal(plugin);
+    const reveal = async () => {
+      if (tabStrip.reveal(plugin)) return;
+      const open = opens.get(plugin);
+      if (open) await open();
+      else workspaceColumn.reveal(plugin);
+    };
+    void reveal().then(() => {
+      // The page a key brought forward takes the focus, so what it draws answers to the keys it asked for. A plugin that
+      // draws into a sidebar tab keeps its page hidden, so the focus goes to whichever of the two is drawn.
+      const page = [...document.querySelectorAll<HTMLElement>(`[data-plugin="${plugin}"]`)].find((element) => !element.hidden);
+      page?.focus();
+    });
   });
   await tabStrip.restore((record) => opens.get(record.plugin)?.(record));
   disposers.push(tabStrip.dispose);
