@@ -14,18 +14,27 @@ export interface KeyContext {
   open(url: string): Promise<unknown>;
 }
 
-/** One bound sequence as the window gets it: the keys in Neovim notation, what to draw for it, and whether it also
- * fires while a field has the keys (otherwise the field keeps them). */
-export interface KeyBinding { keys: string; desc?: string; insert: boolean }
+/** Where a binding fires: `local` fires only while the focus sits inside a plugin's page, `global` fires wherever the
+ * focus is. A binding that also fires while a field has the keys says `insert: true`. */
+type KeyScope = 'local' | 'global';
 
-/** What the window matches against: the leader, how long a prefix waits, and every bound sequence, lowest precedence
- * first, so a later entry overrides an earlier one it repeats. */
+/** One bound sequence as the window gets it: the id it is run by, the keys in Neovim notation, what to draw for it,
+ * whether it also fires while a field has the keys, and where it is allowed to fire. */
+export interface KeyBinding {
+  id: string; keys: string; desc?: string; insert: boolean; scope: KeyScope;
+  /** For a local binding, the page it belongs to; with no plugin named it answers in any page, which is what init.ts
+   * writes. A global binding names no page. */
+  plugin?: string;
+}
+
+/** What the window matches against: the leader, how long a prefix waits, and every bound sequence, with the layers in
+ * the order they were written. */
 export interface KeymapPayload { leader: string; timeout: number; bindings: KeyBinding[] }
 
-/** The keymap: what the window is given, the way a matched sequence runs, and where a plugin's keys join and leave. */
+/** The keymap: what the window is given, how a binding is run by id, and where a plugin's keys join and leave. */
 export interface Keymap {
   payload(): KeymapPayload;
-  run(sequence: string): Promise<void>;
+  run(id: string): Promise<void>;
   /** What one plugin brought with it, kept in a layer of its own. */
   add(owner: string, entries: unknown): void;
   /** Forgets what every plugin brought, which is where loading them again starts. */
@@ -33,29 +42,30 @@ export interface Keymap {
 }
 
 type Action = { event: string; data?: unknown } | { run(context: KeyContext): unknown; args?: unknown };
-type Entry = { desc?: string; insert: boolean; action: Action };
+/** The parts one binding's fields give: what to draw, whether it also fires in a field, and the action. */
+type Written = { desc?: string; insert: boolean; action: Action };
+type Entry = { binding: KeyBinding; action: Action };
 
 /** A space, as in Vim, unless init.ts names another key. */
 const LEADER = ' ';
 /** How long a partly typed sequence waits for its next key. */
 const TIMEOUT = 800;
 
-// A value a binding wrote that is meant to be an object: anything else is read as no fields at all.
+// A value written for a binding that is meant to be an object: anything else is read as no fields at all.
 const fieldsOf = (value: unknown) => typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 // A command is a name init.ts bound in `commands`: the plugin layer passes none, so a plugin's keys bring events and
-// scripts of their own rather than reach into the user's file.
+// scripts of their own rather than name a command from the user's file.
 function commandOf(name: string, commands: Record<string, unknown> | undefined) {
   const run = commands?.[name];
   return typeof run === 'function' ? run as (context: KeyContext) => unknown : undefined;
 }
 
 /**
- * One binding as it was written — an object naming an event, a command or a script — or nothing when no action can
- * be read from it, a command that does not resolve included; `layerOf` reports that case and the others.
+ * The action one binding's fields name — an event, a command or a script — or nothing when they name none, including a
+ * command that does not resolve; `layerOf` reports each such failure by name.
  */
-function entryOf(value: unknown, commands: Record<string, unknown> | undefined): Entry | undefined {
-  const fields = fieldsOf(value);
+function entryOf(fields: Record<string, unknown>, commands: Record<string, unknown> | undefined): Written | undefined {
   const run = typeof fields.run === 'function' ? fields.run as (context: KeyContext) => unknown
     : typeof fields.command === 'string' ? commandOf(fields.command, commands)
       : undefined;
@@ -66,15 +76,29 @@ function entryOf(value: unknown, commands: Record<string, unknown> | undefined):
   return { desc: typeof fields.desc === 'string' ? fields.desc : undefined, insert: fields.insert === true, action };
 }
 
-/** One layer of the keymap as it was written: a plugin names itself, so what it cannot read is reported with it. */
-function layerOf(entries: unknown, commands: Record<string, unknown> | undefined, owner?: string) {
-  const layer = new Map<string, Entry>();
-  const label = owner ? `${owner} keymap` : 'Keymap';
+/**
+ * One layer of the keymap as it was written. A binding it cannot read is reported under `owner`, which the caller
+ * names: `core keymap …` or `<plugin> keymap …`.
+ * `scope` is the scope a binding takes from its layer, and `global: true` can lift it to global; nothing lowers it
+ * back to local.
+ */
+function layerOf(entries: unknown, commands: Record<string, unknown> | undefined, options: { owner?: string; scope: KeyScope }) {
+  const layer: Entry[] = [];
+  const label = options.owner ? `${options.owner} keymap` : 'Keymap';
   for (const [sequence, value] of Object.entries(fieldsOf(entries))) {
-    const entry = entryOf(value, commands);
-    if (entry) { layer.set(sequence, entry); continue; }
+    const fields = fieldsOf(value);
+    const written = entryOf(fields, commands);
+    if (written) {
+      const scope = fields.global === true ? 'global' : options.scope;
+      const id = `${options.owner ?? 'init.ts'}/${sequence}`;
+      layer.push({
+        binding: { id, keys: sequence, desc: written.desc, insert: written.insert, scope, plugin: scope === 'local' ? options.owner : undefined },
+        action: written.action,
+      });
+      continue;
+    }
     // One diagnosis per binding, since `entryOf` reports nothing itself.
-    const { command } = fieldsOf(value);
+    const { command } = fields;
     const kinds = commands ? 'event, command or script' : 'event or script';
     if (typeof command !== 'string') console.error(`${label} ${sequence} names no ${kinds}`);
     else if (commands) console.error(`${label} ${sequence} names no command ${command}`);
@@ -84,39 +108,44 @@ function layerOf(entries: unknown, commands: Record<string, unknown> | undefined
 }
 
 /**
- * The keymap in three layers — the keys Core binds itself, the ones plugins carry, and init.ts's on top: among
- * sequences that come to the same presses, the user's is the one that runs. Scripts and commands run here rather
- * than in the window, in the process that holds the module they came from, so a binding can do anything it can.
+ * The keymap in three layers — the keys Core binds itself, the ones plugins carry, and init.ts's — where a later
+ * layer overrides the layers below it within the same scope, while a local binding wins over a global one.
+ * Scripts and commands run here rather than in the window, in the process that holds the module they came from, so a
+ * script can use anything that module can.
  */
 export function keymapOf(input: KeymapInput | undefined, calls: Omit<KeyContext, 'args'>, defaults: unknown): Keymap {
   const { leader, timeout, keys, commands } = fieldsOf(input);
   const named = fieldsOf(commands);
-  const built = layerOf(defaults, named);
-  const own = layerOf(keys, named);
-  const borrowed = new Map<string, Entry>();
-  const fire = async (sequence: string, entry: Entry) => {
+  const built = layerOf(defaults, named, { owner: 'core', scope: 'global' });
+  const own = layerOf(keys, named, { scope: 'local' });
+  const borrowed: Entry[] = [];
+  // A sequence bound twice within one scope is settled by this order; which scope answers is the window's call.
+  const layers = () => [...built, ...borrowed, ...own];
+  const fire = async (entry: Entry) => {
     try {
       if ('event' in entry.action) await calls.publish(entry.action.event, entry.action.data);
       else await entry.action.run({ ...calls, args: entry.action.args });
     } catch (error) {
-      console.error(`Keymap ${sequence}:`, error);
+      console.error(`Keymap ${entry.binding.keys}:`, error);
     }
   };
   return {
     payload: () => ({
       leader: typeof leader === 'string' && leader ? leader : LEADER,
       timeout: typeof timeout === 'number' && timeout > 0 ? timeout : TIMEOUT,
-      bindings: [...built, ...borrowed, ...own].map(([sequence, entry]) => ({ keys: sequence, desc: entry.desc, insert: entry.insert })),
+      bindings: layers().map((entry) => entry.binding),
     }),
-    async run(sequence) {
-      const entry = own.get(sequence) ?? borrowed.get(sequence) ?? built.get(sequence);
-      if (entry) await fire(sequence, entry);
+    async run(id) {
+      // The window matched this binding and handed over its id; running it here runs a script in the same process as
+      // the module it came from, and publishes an event from this process.
+      const entry = layers().find((candidate) => candidate.binding.id === id);
+      if (entry) await fire(entry);
     },
     add(owner, entries) {
-      for (const [sequence, entry] of layerOf(entries, undefined, owner)) borrowed.set(sequence, entry);
+      borrowed.push(...layerOf(entries, undefined, { owner, scope: 'local' }));
     },
     clear() {
-      borrowed.clear();
+      borrowed.length = 0;
     },
   };
 }

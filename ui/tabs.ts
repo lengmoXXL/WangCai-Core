@@ -169,6 +169,8 @@ export async function sidebarTabs(root: HTMLElement) {
     const panel = document.createElement('section');
     panel.className = 'sidebar-panel';
     panel.dataset.plugin = plugin;
+    // `-1`: a click focuses the pane so its local keys answer, without adding a tab stop.
+    panel.tabIndex = -1;
     panel.setAttribute('role', 'tabpanel');
     panel.setAttribute('aria-label', options.title);
     const tab: Tab = { key, element, button, panel, workspaceId, onClose: options.onClose, content: options.mount(panel) };

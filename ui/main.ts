@@ -40,7 +40,7 @@ async function start() {
   // Nothing to load fills the pane rather than the window: the page above it is what reported the plugins
   // that are out.
   if (!plugins.length) main.textContent = '未安装插件';
-  // Every bound sequence, from Core, the plugins and init.ts. Read once the plugins have activated, since they add
+  // Every bound sequence — Core's, the plugins' and init.ts's — is read once the plugins have activated, since they add
   // theirs.
   disposers.push(bindKeys(await call<KeymapPayload>('keymap')));
   const tabStrip = await sidebarTabs(root);
@@ -63,6 +63,8 @@ async function start() {
     const container = document.createElement('section');
     container.className = 'plugin';
     container.dataset.plugin = plugin.id;
+    // Focusable without a tab stop, so clicking a page puts the focus there and its local keys start working.
+    container.tabIndex = -1;
     main.append(container);
     const subscriptions = new Set<() => void>();
     let stylesheet: HTMLLinkElement | undefined;

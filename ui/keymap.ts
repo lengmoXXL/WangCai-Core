@@ -1,12 +1,15 @@
 import { call } from './bridge';
-import type { KeymapPayload } from '../main/keymap';
+import type { KeyBinding, KeymapPayload } from '../main/keymap';
 
 /** One press: the modifiers held and the key they were held for, the way Neovim names it. */
 interface Chord { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; key: string }
 
-/** A node of the keymap: what a prefix leads to, how the hint names and describes it, and — when a sequence ends
- * here — what to run. The label is empty only on the root, which is never shown as a press of its own. */
-interface Node { children: Map<string, Node>; label: string; desc?: string; sequence?: string }
+/** A node of the keymap: what a prefix leads to, how the hint names it, and — when a binding ends here — which one.
+ * The label is empty only on the root, which is never shown as a press of its own. */
+interface Node { children: Map<string, Node>; label: string; binding?: KeyBinding }
+
+/** The tries a set of keys is matched in: outside a field, and inside one. */
+type Tries = { plain: Node; field: Node };
 
 // What a `<...>` name stands for in the window: the key Nvim writes as CR, Esc or Space is what `event.key` calls
 // Enter, Escape or a space.
@@ -24,8 +27,8 @@ const chordKey = (chord: Chord) => `${Number(chord.ctrl)}${Number(chord.alt)}${N
 // Named keys are read without their case, and the leader is one of them.
 const isLeader = (token: string) => token.toLowerCase() === 'leader';
 
-/** The leader the main process settled on — a space unless init.ts names another — as the chord it stands for and
- * the name a hint shows for it. */
+/** The leader the main process settled on — a space unless init.ts names another: the chord it stands for, and the
+ * label a hint shows for it. */
 interface Leader { chord: Chord; label: string }
 
 /**
@@ -73,7 +76,7 @@ function tokensOf(text: string) {
 // What the window shows a written token as: the character itself, or the name it was written with.
 const labelOf = (token: string) => (token.length === 1 ? token : token.toUpperCase());
 
-// The same for a chord that has no written form to show — the leader, whose label comes from its modifiers.
+// The same for a label built from a chord rather than a written token — the leader, so its modifiers show.
 function chordLabel(chord: Chord) {
   const modifiers = `${chord.ctrl ? 'C-' : ''}${chord.alt ? 'A-' : ''}${chord.shift ? 'S-' : ''}${chord.meta ? 'D-' : ''}`;
   return `${modifiers}${chord.key === ' ' ? 'SPC' : labelOf(chord.key)}`;
@@ -123,7 +126,13 @@ function chordsOfEvent(event: KeyboardEvent): Chord[] {
   return [{ ctrl, alt, shift: event.shiftKey, meta, key: event.key }];
 }
 
-// A press belongs to the field, not to the window, unless the binding asked for it there.
+// The plugin whose page holds the focus, read from the key event's own target.
+function focusedPlugin(target: EventTarget | null) {
+  const page = target instanceof Element ? target.closest<HTMLElement>('[data-plugin]') : null;
+  return page?.dataset.plugin;
+}
+
+// A press goes to the field, not the window: only bindings with `insert: true` are matched while a field has the keys.
 const isEditable = (target: EventTarget | null) => target instanceof Element && !!target.closest('input, textarea, [contenteditable=""], [contenteditable="true"]');
 
 function trieOf(bindings: KeymapPayload['bindings'], leader: Leader | undefined) {
@@ -143,22 +152,37 @@ function trieOf(bindings: KeymapPayload['bindings'], leader: Leader | undefined)
       }
       node = child;
     }
-    node.sequence = binding.keys;
-    node.desc = binding.desc;
+    node.binding = binding;
   }
   return root;
 }
 
 /**
- * The window's side of the keymap: it matches presses against the sequences and hands a whole match back to
- * the main process, where the bindings run. A prefix that could still grow waits out the timeout before it is run
- * on its own, and while it waits a hint lists what the next key may be.
+ * The window's side of the keymap. It picks the keys a press is judged by — the global ones, and inside a page those
+ * plus the local keys that answer there — matches the press against them, and hands a whole match back to the main
+ * process, where the bindings run. A prefix that could still grow waits out the timeout before it is run on its own,
+ * and while it waits a hint lists what the next key may be.
  */
 export function bindKeys(config: KeymapPayload) {
   const leader = leaderOf(config.leader);
-  // A field gets only the bindings that ask for it, so each case needs a trie of its own.
-  const anywhere = trieOf(config.bindings, leader);
-  const inField = trieOf(config.bindings.filter((binding) => binding.insert), leader);
+  // A field gets only the bindings that ask for it, so each set of keys needs two tries.
+  const triesOf = (bindings: KeymapPayload['bindings']): Tries => ({
+    plain: trieOf(bindings, leader),
+    field: trieOf(bindings.filter((binding) => binding.insert), leader),
+  });
+  const globals = config.bindings.filter((binding) => binding.scope === 'global');
+  const globalTries = triesOf(globals);
+  // A page's tries are built the first time it is focused and kept for the rest of the session.
+  const pages = new Map<string, Tries>();
+  const pageFor = (plugin: string) => {
+    let page = pages.get(plugin);
+    if (!page) {
+      const local = config.bindings.filter((binding) => binding.scope === 'local' && (binding.plugin === undefined || binding.plugin === plugin));
+      page = triesOf([...globals, ...local]);
+      pages.set(plugin, page);
+    }
+    return page;
+  };
   const hint = document.createElement('div');
   hint.className = 'which-key';
   hint.hidden = true;
@@ -170,9 +194,9 @@ export function bindKeys(config: KeymapPayload) {
     pending = undefined;
     hint.hidden = true;
   };
-  const fire = (sequence: string) => {
+  const fire = (id: string) => {
     clear();
-    void call('key', sequence).catch(console.error);
+    void call('key', id).catch(console.error);
   };
   const paint = (node: Node, path: string[]) => {
     const head = document.createElement('div');
@@ -184,7 +208,7 @@ export function bindKeys(config: KeymapPayload) {
       const kbd = document.createElement('kbd');
       kbd.textContent = child.label;
       const text = document.createElement('span');
-      text.textContent = child.desc ?? child.sequence ?? '';
+      text.textContent = child.binding?.desc ?? child.binding?.keys ?? '';
       row.append(kbd, text);
       return row;
     });
@@ -194,11 +218,16 @@ export function bindKeys(config: KeymapPayload) {
   const step = (node: Node, path: string[]) => {
     clearTimeout(timer);
     pending = { node, path };
-    const { sequence } = node;
-    if (sequence !== undefined && !node.children.size) { fire(sequence); return; }
+    const { binding } = node;
+    if (binding && !node.children.size) { fire(binding.id); return; }
     // A node that both ends a sequence and leads to longer ones waits for the timeout, as Vim does with `g` and `gg`.
-    timer = window.setTimeout(sequence === undefined ? clear : () => fire(sequence), config.timeout);
+    timer = window.setTimeout(binding ? () => fire(binding.id) : clear, config.timeout);
     paint(node, path);
+  };
+  const rootFor = (event: KeyboardEvent) => {
+    const page = focusedPlugin(event.target);
+    const tries = page === undefined ? globalTries : pageFor(page);
+    return isEditable(event.target) ? tries.field : tries.plain;
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.isComposing || event.repeat) return;
@@ -206,17 +235,18 @@ export function bindKeys(config: KeymapPayload) {
     if (!candidates.length) return;
     const current = pending;
     if (current && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); clear(); return; }
-    // Only a first press is judged by where it landed: after that the sequence is already the window's.
-    const children = current?.node.children ?? (isEditable(event.target) ? inField : anywhere).children;
+    // Only a first press picks the page's keys or the global ones; after that the sequence stays in the trie it
+    // started in.
+    const level = current ? current.node.children : rootFor(event).children;
     for (const pressed of candidates) {
-      const next = children.get(pressed);
+      const next = level.get(pressed);
       if (!next) continue;
       event.preventDefault();
       event.stopPropagation();
       step(next, [...current?.path ?? [], next.label]);
       return;
     }
-    // A press that continues nothing ends the sequence and is left to whatever wanted it.
+    // A press that continues nothing ends the sequence and is not consumed: the field or the window still gets it.
     if (current) clear();
   };
   window.addEventListener('keydown', onKeyDown, true);

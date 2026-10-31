@@ -5,15 +5,15 @@ const { join } = require('node:path');
 const { openView, until, withHome, withWindow } = require('@lengmoxxl/wangcai-testkit');
 const { plugin, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
 
-// A view that says what a keymap binding published: the probe is the only thing it draws, so the window's text is
-// what a case reads the binding by.
+// A view that says what a keymap binding published: the probe draws nothing else, so its text shows what the binding
+// did.
 const probeUi = `export function mount(container, context) {
   context.global.subscribe('keys-probe', (data) => { container.textContent = String(data); });
 }
 `;
 const probe = plugin('keys', { 'ui.js': probeUi });
 
-// A plugin that arrives with a key of its own, the way one declares its config schema.
+// A plugin that arrives with a key of its own, declared as a static export beside `activate`.
 const provided = plugin('provided', {
   'main.cjs': `exports.activate = () => {};
 exports.keys = { '<leader>t': { event: 'keys-probe', data: '插件', desc: '插件自己的键' } };
@@ -35,7 +35,7 @@ const writeInit = (home, keys, tabs, commands = '{}') => writeFileSync(join(home
 };
 `);
 
-// A window with the probe open, and the reading to wait on: the text the probe carries.
+// A window with the probe mounted, and the reading to wait on: the text the probe carries.
 const withProbe = (prefix, { keys, commands }, body) => withHome(prefix, {}, async ({ home, open }) => {
   writeInit(home, keys, [probe], commands);
   const { page } = await open();
@@ -48,6 +48,10 @@ const withProbe = (prefix, { keys, commands }, body) => withHome(prefix, {}, asy
 
 const press = async (page, ...keys) => { for (const key of keys) await page.keyboard.press(key); };
 
+// Local bindings only answer while the focus is inside a page: `focusPage` clicks in, `leavePage` takes the focus away.
+const focusPage = async (page, plugin) => page.locator(`[data-plugin="${plugin}"]`).click();
+const leavePage = (page) => page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+
 test('keys bound in init.ts reach the window as an event, a script, or a named command', { timeout: 180000 }, () => withProbe('wangcai-keys', {
   keys: `{
     '<leader>pe': { event: 'keys-probe', data: '事件到了', desc: '发事件' },
@@ -56,6 +60,7 @@ test('keys bound in init.ts reach the window as an event, a script, or a named c
   }`,
   commands: `{ 'probe.report': ({ args, publish }) => publish('keys-probe', args) }`,
 }, async ({ page, errors, said }) => {
+  await focusPage(page, 'keys');
   await press(page, 'Space', 'p', 'e');
   await said('事件到了');
   await press(page, 'Space', 'p', 's');
@@ -72,6 +77,7 @@ test('a prefix waits out the timeout, and the hint lists what may follow', { tim
     '<Leader>q': { event: 'keys-probe', data: 'q', desc: '退出' },
   }` }, async ({ page, said, errors }) => {
   const hint = page.locator('.which-key');
+  await focusPage(page, 'keys');
   await page.keyboard.press('Space');
   await until(async () => /退出/.test(await hint.textContent()));
   await page.keyboard.press('Escape');
@@ -91,7 +97,7 @@ test('a field keeps its own keys, unless the binding asks for them', { timeout: 
   await page.evaluate(() => {
     const field = document.createElement('input');
     field.id = 'probe-field';
-    document.body.append(field);
+    document.querySelector('[data-plugin="keys"]').append(field);
     field.focus();
   });
   await press(page, 'Space', 'p', 'e');
@@ -104,12 +110,51 @@ test('a field keeps its own keys, unless the binding asks for them', { timeout: 
   assert.deepEqual(errors, []);
 }));
 
+test('a local binding answers only inside a page, a global one wherever the focus is', { timeout: 180000 }, () => withProbe('wangcai-keys-scope', { keys: `{
+    '<leader>lo': { event: 'keys-probe', data: '局部' },
+    '<leader>gl': { event: 'keys-probe', data: '全局', global: true },
+  }` }, async ({ page, echo, said, errors }) => {
+  // Outside any page only the global binding answers.
+  await leavePage(page);
+  await press(page, 'Space', 'g', 'l');
+  await said('全局');
+  await press(page, 'Space', 'l', 'o');
+  // A press is handled as it arrives, so a moment is enough to see that this one stayed quiet.
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(await echo.textContent(), '全局');
+  // Inside the page both the local and the global binding answer.
+  await focusPage(page, 'keys');
+  await press(page, 'Space', 'l', 'o');
+  await said('局部');
+  await press(page, 'Space', 'g', 'l');
+  await said('全局');
+  assert.deepEqual(errors, []);
+}));
+
+test("a page's own binding wins over a global one on the same sequence", { timeout: 180000 }, () => withHome('wangcai-keys-priority', {}, async ({ home, open }) => {
+  writeInit(home, `{ '<leader>t': { event: 'keys-probe', data: '全局', global: true } }`, [provided]);
+  const { page } = await open();
+  const errors = watch(page);
+  const echo = page.locator('[data-plugin="provided"]');
+  await echo.waitFor();
+  // Outside its page the global binding answers, so park the focus outside it first.
+  await leavePage(page);
+  await press(page, 'Space', 't');
+  await until(async () => (await echo.textContent()) === '全局');
+  // Inside its page the plugin's own key wins.
+  await focusPage(page, 'provided');
+  await press(page, 'Space', 't');
+  await until(async () => (await echo.textContent()) === '插件');
+  assert.deepEqual(errors, []);
+}));
+
 test('a plugin brings its own keys, and init.ts overrides them', { timeout: 180000 }, () => withHome('wangcai-keys-plugin', { tabs: [provided] }, async ({ home, open }) => {
   // What both windows report, in one list: the second start has to be as clean as the first.
   const first = await open();
   const errors = watch(first.page);
   const echo = first.page.locator('[data-plugin="provided"]');
   await echo.waitFor();
+  await focusPage(first.page, 'provided');
   await press(first.page, 'Space', 't');
   await until(async () => (await echo.textContent()) === '插件');
   await first.close();
@@ -119,6 +164,7 @@ test('a plugin brings its own keys, and init.ts overrides them', { timeout: 1800
   watch(second.page, errors);
   const echoed = second.page.locator('[data-plugin="provided"]');
   await echoed.waitFor();
+  await focusPage(second.page, 'provided');
   await press(second.page, 'Space', 't');
   await until(async () => (await echoed.textContent()) === '配置');
   await second.close();
