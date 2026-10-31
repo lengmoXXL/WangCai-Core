@@ -14,7 +14,8 @@
 （`{ command, args }`，`commands` 是 `init.ts` 顶层的一张表，名字对应函数），或跑脚本（`{ run }`）。
 
 发 `core:close-tab` 这个事件就关掉当前标签页；发 `core:show-view` 带 `data: { plugin }` 则把那个插件的视图切到前台，
-没开就打开（工作区插件是切到它的工作区）。`init.ts` 的绑定和插件的 `keys` 都把 `event` 写成这两个名字之一即可。
+没开就打开（工作区插件是切到它的工作区），焦点跟着过去，不用再点一下；接上 `wangcai:shown` 的视图（比如终端）按完直接就能打字。
+`init.ts` 的绑定和插件的 `keys` 都把 `event` 写成这两个名字之一即可。
 
 `{ command }` 与 `{ run }` 这两种拿到 `{ args, profile, publish, request, send, open }`：`args` 是绑定里写的参数，`profile` 是主题配置，
 `publish` 发事件，`request` 调插件的界面方法（插件用 `ui.handle` 注册的那些），`send` 只往窗口发一条带名字的消息

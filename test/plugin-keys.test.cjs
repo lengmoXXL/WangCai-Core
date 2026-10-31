@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { openView, withHome } = require('@lengmoxxl/wangcai-testkit');
-const { mockWorkspace, press, tabNames, untilReading, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
+const { mockWorkspace, mockWorkspaceRow, press, tabNames, untilReading, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
 
 test('a plugin key opens its view, and brings the open one to the front', { timeout: 180000 }, () => withHome('wangcai-plugin-keys', workspaceLists([
   viewPlugin('git', 'Git', { '<leader>gg': { global: true, event: 'core:show-view', data: { plugin: 'git' } } }),
@@ -15,19 +15,18 @@ test('a plugin key opens its view, and brings the open one to the front', { time
   await openView(page, '文件');
   await untilReading(() => tabNames(page), ['Git', '文件'], 'a view opened from the menu stands beside it');
   await press(page, 'Space', 'g', 'g');
-  await page.locator('.sidebar-panel[data-plugin=git]').waitFor();
-  assert.deepEqual(await tabNames(page), ['Git', '文件'], 'the open view comes to the front and stays open');
+  await untilReading(() => tabNames(page), ['Git', '文件'], 'the view already open comes to the front, and no tab is added');
+  assert.ok(await page.locator('.sidebar-panel[data-plugin=git]').isVisible(), 'the view already open is the one drawn');
   assert.deepEqual(errors, []);
 }));
 
 test('a workspace provider key switches to its workspace', { timeout: 180000 }, () => {
-  const row = (id) => ({ id, label: '~', machine: 'local', running: true });
   // Two providers, each with the row it serves, so the workspace in front belongs to one of them and the key asks for the
   // other's.
   const lists = {
     workspaces: [
-      mockWorkspace({ id: 'other', rows: [row('o1')] }),
-      mockWorkspace({ rows: [row('w1')], keys: { '<leader>aa': { global: true, event: 'core:show-view', data: { plugin: 'workspace' } } } }),
+      mockWorkspace({ id: 'other', rows: [mockWorkspaceRow('o1')] }),
+      mockWorkspace({ rows: [mockWorkspaceRow('w1')], keys: { '<leader>aa': { global: true, event: 'core:show-view', data: { plugin: 'workspace' } } } }),
     ],
     tabs: [],
   };

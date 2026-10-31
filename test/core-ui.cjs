@@ -27,17 +27,21 @@ export function open(context) { context.host.tabs({ id: ${JSON.stringify(id)}, t
 `,
 }, keys);
 
+// The row a mock provider serves a workspace as; a case that seeds one gives its id, and the create path supplies the id.
+const mockWorkspaceRow = (id = '') => ({ id, label: '~', machine: 'local', running: true });
+
 // A workspace provider with no agent behind it: it serves the rows it is given and those the window makes, and a drop
 // asks it for a place among them, which is the whole of what Core's sidebar reads from a provider.
 const mockWorkspace = ({ id = 'workspace', rows = [], keys } = {}) => plugin(id, { 'main.cjs': `exports.activate = ({ ui }) => {
   const rows = ${JSON.stringify(rows)};
+  const template = ${JSON.stringify(mockWorkspaceRow())};
   ui.handle('workspaces', () => rows);
   ui.handle('workspace-menu', () => [{ key: 'local', label: '本机' }]);
   // Core selects a row after it creates one and after a refresh, so this answers those calls where a mock has nothing to
   // select: a missing method only leaves an 'Unknown plugin method' on the console.
   ui.handle('workspace-select', () => undefined);
   ui.handle('workspace-create', () => {
-    const row = { id: \`w\${rows.length + 1}\`, label: '~', machine: 'local', running: true };
+    const row = { ...template, id: \`w\${rows.length + 1}\` };
     rows.push(row);
     return { id: row.id };
   });
@@ -155,6 +159,6 @@ const rowIds = (locator) => locator.evaluateAll((nodes) => nodes.map((node) => n
 const rowId = (locator) => locator.first().evaluate((element) => element.dataset.workspace);
 
 module.exports = {
-  plugin, viewPlugin, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, tabNames, untilReading, watch,
+  plugin, viewPlugin, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, tabNames, untilReading, watch,
   groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
 };

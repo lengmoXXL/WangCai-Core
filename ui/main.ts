@@ -58,6 +58,17 @@ async function start() {
   sidebarDividers(root, workspaceColumn.element, tabStrip.element, disposers);
 
   const opens = new Map<string, (record?: TabRecord) => Promise<void>>();
+  // The plugin the key in hand asked to open: its open() answers before the panel exists, so the focus waits for the panel
+  // the plugin then asks for.
+  let asked: string | undefined;
+  // A plugin that draws into a sidebar tab keeps its page hidden, so the page is whichever of the two is drawn.
+  const handKeys = (plugin: string) => {
+    const page = [...document.querySelectorAll<HTMLElement>(`[data-plugin="${plugin}"]`)].find((element) => !element.hidden);
+    if (!page) return;
+    page.focus();
+    // Two Escapes hand the keys to a page the same way, so a plugin that would take them back hears about this instead.
+    page.dispatchEvent(new CustomEvent('wangcai:shown'));
+  };
   for (const plugin of plugins) {
     if (!plugin.error && !plugin.ui) continue;
     const container = document.createElement('section');
@@ -110,7 +121,12 @@ async function start() {
         host: {
           config: { ...profile, ...plugin.config },
           preview: { url: previewUrl, message: previewMessage },
-          tabs: (options) => tabStrip.open(plugin.id, options),
+          tabs: (options) => {
+            tabStrip.open(plugin.id, options);
+            if (asked !== plugin.id) return;
+            asked = undefined;
+            handKeys(plugin.id);
+          },
           open: (url) => call('open', url),
         },
       };
@@ -135,21 +151,18 @@ async function start() {
       await fail(error);
     }
   }
-  window.wangcai.subscribe('core:show-view', (value) => {
+  window.wangcai.subscribe('core:show-view', async (value) => {
     const plugin = (value as { plugin?: unknown } | undefined)?.plugin;
     if (typeof plugin !== 'string') return;
-    const reveal = async () => {
-      if (tabStrip.reveal(plugin)) return;
-      const open = opens.get(plugin);
-      if (open) await open();
-      else workspaceColumn.reveal(plugin);
-    };
-    void reveal().then(() => {
-      // The page a key brought forward takes the focus, so what it draws answers to the keys it asked for. A plugin that
-      // draws into a sidebar tab keeps its page hidden, so the focus goes to whichever of the two is drawn.
-      const page = [...document.querySelectorAll<HTMLElement>(`[data-plugin="${plugin}"]`)].find((element) => !element.hidden);
-      page?.focus();
-    });
+    asked = undefined;
+    if (tabStrip.reveal(plugin)) return handKeys(plugin);
+    const open = opens.get(plugin);
+    if (!open) {
+      workspaceColumn.reveal(plugin);
+      return handKeys(plugin);
+    }
+    asked = plugin;
+    await open();
   });
   await tabStrip.restore((record) => opens.get(record.plugin)?.(record));
   disposers.push(tabStrip.dispose);

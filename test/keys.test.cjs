@@ -154,7 +154,11 @@ test('two Escapes leave the field, and the page answers to its local keys again'
   assert.equal((await focused()).id, 'probe-later-field');
   // Any other press clears the armed Escape, so the pair below starts a fresh count.
   await press(page, 'a');
-  await press(page, 'Escape', 'Escape');
+  await page.evaluate(() => {
+    for (let index = 0; index < 2; index += 1) {
+      document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
+  });
   assert.equal((await focused()).page, 'keys');
   await press(page, 'Space', 'l', 'o');
   await said('局部');
