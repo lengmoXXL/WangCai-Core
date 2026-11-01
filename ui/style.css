@@ -38,8 +38,8 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
    does, red for what git would pull in and green for what it would push out. */
 .workspace .git .behind { color: var(--wc-red); }
 .workspace .git .ahead { color: var(--wc-green); }
-/* The theme has no colour for changes, so the mark keeps one of its own. */
-.workspace .git .dirty { color: #e2a33f; }
+/* The mark for changes stays the muted grey: it says something is waiting, without a colour of its own. */
+.workspace .git .dirty { color: color-mix(in srgb, var(--wc-muted) 82%, transparent); }
 @property --wc-sweep { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 .workspace[data-state=working] .glyph { border-color: transparent; }
 .workspace[data-state=working] .glyph::after { content: ''; position: absolute; inset: -1px; padding: 1px; border-radius: inherit; background: conic-gradient(from var(--wc-sweep), transparent 0 150deg, var(--wc-accent) 344deg, transparent 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: wc-agent-sweep 1.7s linear infinite; }
