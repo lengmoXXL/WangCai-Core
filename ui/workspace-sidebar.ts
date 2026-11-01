@@ -423,23 +423,23 @@ export async function workspaceSidebar(options: {
     element.setAttribute('aria-label', `${row.label} · ${row.machine} · ${agentStateLabels[drawn]}`);
   };
   const paintGit = (cell: HTMLElement, git: WorkspaceGit | null) => {
-    // A repository with nothing waiting draws nothing and takes no room in the row either.
     const shown = git && (git.behind || git.ahead || git.dirty) ? git : null;
+    // Hidden, the cell reserves no width at the row's end.
     cell.hidden = !shown;
     cell.replaceChildren();
     if (!shown) {
       cell.title = '';
       return;
     }
-    const part = (text: string, className?: string) => {
+    const part = (text: string, className: string) => {
       const span = document.createElement('span');
-      if (className) span.className = className;
+      span.className = className;
       span.textContent = text;
       cell.append(span);
     };
-    if (shown.behind) part(`↓${shown.behind}`);
-    if (shown.ahead) part(`↑${shown.ahead}`);
-    if (shown.dirty) part('●', 'dirty');
+    if (shown.behind) part(`↓${shown.behind}`, 'behind');
+    if (shown.ahead) part(`↑${shown.ahead}`, 'ahead');
+    if (shown.dirty) part('*', 'dirty');
     cell.title = [shown.branch, shown.behind && `${shown.behind} 个提交待拉取`, shown.ahead && `${shown.ahead} 个提交待推送`, shown.dirty && '有未提交的修改']
       .filter(Boolean).join(' · ');
   };

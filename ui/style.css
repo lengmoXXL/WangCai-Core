@@ -32,9 +32,14 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace.selected .name { color: var(--wc-foreground); }
 .workspace .meta { overflow: hidden; color: color-mix(in srgb, var(--wc-muted) 78%, transparent); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 /* The cell sits on the row's lower right, level with the machine under the name. */
-.workspace .git { display: flex; flex: 0 0 auto; align-self: flex-end; gap: 4px; padding: 0 2px 5px 0; color: color-mix(in srgb, var(--wc-muted) 82%, transparent); font-size: 10px; font-variant-numeric: tabular-nums; line-height: 1; }
+.workspace .git { display: flex; flex: 0 0 auto; align-self: flex-end; gap: 4px; padding: 0 2px 5px 0; font-size: 10px; font-variant-numeric: tabular-nums; line-height: 1; }
 .workspace .git[hidden] { display: none; }
-.workspace .git .dirty { color: var(--wc-yellow); }
+/* The counts borrow the interface red and green on purpose: a `↓`/`↑` pair reads the way a shell prompt's git segment
+   does, red for what git would pull in and green for what it would push out. */
+.workspace .git .behind { color: var(--wc-red); }
+.workspace .git .ahead { color: var(--wc-green); }
+/* The theme has no colour for changes, so the mark keeps one of its own. */
+.workspace .git .dirty { color: #e2a33f; }
 @property --wc-sweep { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 .workspace[data-state=working] .glyph { border-color: transparent; }
 .workspace[data-state=working] .glyph::after { content: ''; position: absolute; inset: -1px; padding: 1px; border-radius: inherit; background: conic-gradient(from var(--wc-sweep), transparent 0 150deg, var(--wc-accent) 344deg, transparent 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: wc-agent-sweep 1.7s linear infinite; }

@@ -16,7 +16,7 @@ test('a workspace row says what git makes of it', { timeout: 180000 }, () => wit
   const waiting = { branch: 'main', ahead: 3, behind: 2, dirty: true };
   const drawn = async () => {
     await publish(waiting);
-    await until(async () => (await cell.textContent()) === '↓2↑3●');
+    await until(async () => (await cell.textContent()) === '↓2↑3*');
   };
   await drawn();
   assert.equal(await cell.getAttribute('title'), 'main · 2 个提交待拉取 · 3 个提交待推送 · 有未提交的修改');
@@ -24,7 +24,7 @@ test('a workspace row says what git makes of it', { timeout: 180000 }, () => wit
   await publish(null);
   await until(() => cell.isHidden());
   await drawn();
-  // So does a repository with nothing waiting.
+  // So does a quiet repository.
   await publish({ branch: 'main', ahead: 0, behind: 0, dirty: false });
   await until(() => cell.isHidden());
   assert.deepEqual(errors, []);
