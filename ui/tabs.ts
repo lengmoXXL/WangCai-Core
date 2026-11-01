@@ -1,8 +1,9 @@
 import type { TabContent, TabOptions, TabRecord } from '@lengmoxxl/sdk/channel';
 import { call } from './bridge';
+import { handKeysTo } from './keymap';
 import { clampMenu, dragSource, onDragLeave, type MenuAnchor } from './layout';
 
-export async function sidebarTabs(root: HTMLElement) {
+export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement | undefined) {
   // Scroll events do not bubble, so only a capture-phase listener can see the sidebar panels scroll.
   const SCROLLBAR_IDLE = 700;
   const idleTimers = new WeakMap<Element, number>();
@@ -66,12 +67,6 @@ export async function sidebarTabs(root: HTMLElement) {
   toggle.textContent = '◧';
   toggle.setAttribute('aria-label', '切换右侧栏');
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.onclick = () => {
-    right.hidden = !right.hidden;
-    toggle.setAttribute('aria-expanded', String(!right.hidden));
-    if (!right.hidden) tabs.get(current)?.content.onSelect?.();
-    viewMenu.hidePopover();
-  };
   root.append(toggle, viewMenu);
 
   // A tab that follows no workspace is drawn in every one of them.
@@ -87,14 +82,30 @@ export async function sidebarTabs(root: HTMLElement) {
       tab.panel.hidden = !visible || !isCurrent;
     }
   };
+  const frontTab = () => {
+    const tab = right.hidden ? undefined : tabs.get(current);
+    return tab && inFront(tab) ? tab : undefined;
+  };
+  const takeKeys = () => handKeysTo(frontTab()?.panel ?? mainPage());
   const select = (key: string) => {
     const tab = tabs.get(key);
     current = tab ? key : '';
     if (tab) selected.set(tab.workspaceId ?? '', key);
     show();
     tab?.content.onSelect?.();
+    takeKeys();
     tab?.button.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   };
+  toggle.onclick = () => {
+    right.hidden = !right.hidden;
+    toggle.setAttribute('aria-expanded', String(!right.hidden));
+    // Hiding the sidebar, and showing it with no tab in front, hand the keys over here: `select` goes through `show`,
+    // which sets the sidebar's visibility from the tab count, so it would undo the hide or hide an empty sidebar again.
+    if (frontTab()) select(current);
+    else takeKeys();
+    viewMenu.hidePopover();
+  };
+
   const removeTab = (key: string) => {
     const tab = tabs.get(key)!;
     tab.onClose?.();
@@ -230,6 +241,7 @@ export async function sidebarTabs(root: HTMLElement) {
       return true;
     },
     settle,
+    takeKeys,
     open,
     addView(title: string, open: () => void) {
       const item = document.createElement('button');

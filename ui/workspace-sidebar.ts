@@ -26,6 +26,8 @@ interface WorkspaceTabs {
   closeGone(ids: string[]): void;
   /** The tab state is written down and drawn around the workspace in front. */
   settle(id: string | undefined): void;
+  /** The keys go to the tab in front, or to the page in the main pane when no tab is in front. */
+  takeKeys(): void;
 }
 
 /** The left sidebar: one row per workspace a provider serves, gathered under the groups the window holds. */
@@ -248,6 +250,8 @@ export async function workspaceSidebar(options: {
   document.addEventListener('keydown', escapeOverlays);
   disposers.push(() => document.removeEventListener('keydown', escapeOverlays));
 
+  // A workspace that is chosen is a switch to it, so the keys follow: `settle` only puts the tabs back in order, which it
+  // also does when the rows change.
   const selectWorkspace = (id: string) => {
     const provider = providerOf(id);
     if (!provider) return;
@@ -255,6 +259,7 @@ export async function workspaceSidebar(options: {
     tabs.rebind(id);
     showRows();
     tabs.settle(active);
+    tabs.takeKeys();
     void call('request', provider, 'workspace-select', { id }).catch(console.error);
   };
 
@@ -576,11 +581,25 @@ export async function workspaceSidebar(options: {
     if (element) paintGit(element, git);
   }));
   void refreshRows();
-  /** Puts a workspace this provider serves in front, leaving one already in front alone. */
+  /** Puts a workspace this provider serves in front with the keys, leaving one already in front where it is; false when
+   * the provider serves no workspace. */
   const reveal = (provider: string) => {
-    if (active !== undefined && providerOf(active) === provider) return;
+    if (active !== undefined && providerOf(active) === provider) {
+      tabs.takeKeys();
+      return true;
+    }
     const row = rowsByProvider.get(provider)?.[0];
-    if (row) selectWorkspace(row.id);
+    if (!row) return false;
+    selectWorkspace(row.id);
+    return true;
   };
-  return { element, reveal };
+  /** The page of the provider that serves the workspace in front, as drawn in the main pane. */
+  const page = () => {
+    const provider = active === undefined ? undefined : providerOf(active);
+    return provider
+      ? document.querySelector<HTMLElement>(`.desktop-main > [data-plugin="${provider}"]:not([hidden])`) ?? undefined
+      : undefined;
+  };
+
+  return { element, reveal, page };
 }

@@ -1,6 +1,19 @@
 import { call } from './bridge';
 import type { KeyBinding, KeymapPayload } from '../main/keymap';
 
+// The page is focused, and told it is on show: a plugin that keeps a text field in it answers by focusing that field, so
+// the keys land where typing goes instead of on the page around it.
+export const handKeysTo = (page?: HTMLElement) => {
+  if (!page) return;
+  page.focus();
+  page.dispatchEvent(new CustomEvent('wangcai:shown'));
+};
+
+// A plugin can be drawn in the main pane or in a sidebar tab, so the page that takes the keys is the one of it that is
+// not hidden.
+export const visiblePageOf = (plugin: string) =>
+  [...document.querySelectorAll<HTMLElement>(`[data-plugin="${plugin}"]`)].find((element) => !element.hidden);
+
 /** One press: the modifiers held and the key they were held for, the way Neovim names it. */
 interface Chord { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; key: string }
 
@@ -250,7 +263,8 @@ export function bindKeys(config: KeymapPayload) {
         event.preventDefault();
         event.stopPropagation();
         escaped = undefined;
-        // The page is what the local keys are matched by, so the focus goes there.
+        // The page is what the local keys are matched by, so the focus goes there. The page is not told it is on show:
+        // that would send the keys back into the field this press is leaving.
         page?.focus();
         return;
       }

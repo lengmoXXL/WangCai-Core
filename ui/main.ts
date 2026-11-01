@@ -3,7 +3,7 @@ import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
 import { fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import { call } from './bridge';
 import { installsPage } from './installs';
-import { bindKeys } from './keymap';
+import { bindKeys, handKeysTo, visiblePageOf } from './keymap';
 import { sidebarDividers } from './layout';
 import { sidebarTabs } from './tabs';
 import { workspaceSidebar } from './workspace-sidebar';
@@ -43,7 +43,9 @@ async function start() {
   // Every bound sequence — Core's, the plugins' and init.ts's — is read once the plugins have activated, since they add
   // theirs.
   disposers.push(bindKeys(await call<KeymapPayload>('keymap')));
-  const tabStrip = await sidebarTabs(root);
+  // The tab strip is built before `workspaceColumn`, which is what knows the page the keys fall back to, so it asks for
+  // that page only when it hands the keys over, once `workspaceColumn` is there.
+  const tabStrip = await sidebarTabs(root, () => workspaceColumn.page());
   // The topic Core's own `<leader>w` publishes; a plugin's binding may publish it too.
   window.wangcai.subscribe('core:close-tab', () => tabStrip.closeSelected());
   const providers = plugins.filter((plugin) => plugin.workspaces && !plugin.error).map((plugin) => plugin.id);
@@ -58,17 +60,6 @@ async function start() {
   sidebarDividers(root, workspaceColumn.element, tabStrip.element, disposers);
 
   const opens = new Map<string, (record?: TabRecord) => Promise<void>>();
-  // The plugin the key in hand asked to open: its open() answers before the panel exists, so the focus waits for the panel
-  // the plugin then asks for.
-  let asked: string | undefined;
-  // A plugin that draws into a sidebar tab keeps its page hidden, so the page is whichever of the two is drawn.
-  const handKeys = (plugin: string) => {
-    const page = [...document.querySelectorAll<HTMLElement>(`[data-plugin="${plugin}"]`)].find((element) => !element.hidden);
-    if (!page) return;
-    page.focus();
-    // Two Escapes hand the keys to a page the same way, so a plugin that would take them back hears about this instead.
-    page.dispatchEvent(new CustomEvent('wangcai:shown'));
-  };
   for (const plugin of plugins) {
     if (!plugin.error && !plugin.ui) continue;
     const container = document.createElement('section');
@@ -121,12 +112,7 @@ async function start() {
         host: {
           config: { ...profile, ...plugin.config },
           preview: { url: previewUrl, message: previewMessage },
-          tabs: (options) => {
-            tabStrip.open(plugin.id, options);
-            if (asked !== plugin.id) return;
-            asked = undefined;
-            handKeys(plugin.id);
-          },
+          tabs: (options) => tabStrip.open(plugin.id, options),
           open: (url) => call('open', url),
         },
       };
@@ -154,17 +140,20 @@ async function start() {
   window.wangcai.subscribe('core:show-view', async (value) => {
     const plugin = (value as { plugin?: unknown } | undefined)?.plugin;
     if (typeof plugin !== 'string') return;
-    asked = undefined;
-    if (tabStrip.reveal(plugin)) return handKeys(plugin);
+    if (tabStrip.reveal(plugin)) return;
     const open = opens.get(plugin);
     if (!open) {
-      workspaceColumn.reveal(plugin);
-      return handKeys(plugin);
+      if (!workspaceColumn.reveal(plugin)) handKeysTo(visiblePageOf(plugin));
+      return;
     }
-    asked = plugin;
     await open();
   });
   await tabStrip.restore((record) => opens.get(record.plugin)?.(record));
+  // A workspace switched to before its plugin drew a page had nothing to take the keys, so the tab strip hands them over
+  // here the way it does anywhere else.
+  //
+  // Only a window with nothing focused needs it: a restored sidebar tab has already put the keys in its own field.
+  if (document.activeElement === document.body) tabStrip.takeKeys();
   disposers.push(tabStrip.dispose);
 }
 void start().catch((error) => { root.textContent = String(error); });

@@ -19,20 +19,46 @@ const plugin = (id, files, keys) => {
 };
 process.once('exit', () => { if (fixtures) rmSync(fixtures, { recursive: true, force: true }); });
 
-// A sidebar view that draws nothing: a case opens it to give the tab strip something to order.
-const viewPlugin = (id, title, keys) => plugin(id, {
-  'ui.js': `export const title = ${JSON.stringify(title)};
+// A sidebar view whose tab panel draws nothing by default: a case opens it to give the tab strip something to order.
+//
+// `draw` is handed the panel of the tab it opens, and Core calls what it returns when that tab closes, so it returns a
+// disposer.
+//
+// `workspaceId` is the workspace the tab follows, which is the one in front unless a case names another.
+const viewPlugin = (id, title, { keys, draw = 'function draw() { return () => {}; }', workspaceId } = {}) => plugin(id, {
+  'ui.js': `${draw}
+export const title = ${JSON.stringify(title)};
 export function mount() {}
-export function open(context) { context.host.tabs({ id: ${JSON.stringify(id)}, title: ${JSON.stringify(title)}, mount: () => ({ dispose: () => {} }) }); }
+export function open(context) { context.host.tabs({ id: ${JSON.stringify(id)}, title: ${JSON.stringify(title)}${workspaceId ? `, workspaceId: ${JSON.stringify(workspaceId)}` : ''}, mount: (container) => ({ dispose: draw(container) }) }); }
 `,
 }, keys);
+
+// The content of a tab panel holding a field: what takes the keys is the field, and the panel tells it so when it is on
+// show.
+const fieldPanel = `function draw(container) {
+  const input = document.createElement('input');
+  container.append(input);
+  container.addEventListener('wangcai:shown', () => input.focus());
+  return () => input.remove();
+}
+`;
+
+// A workspace provider draws its page by its own `mount` rather than having `draw` handed to it: the same field in the
+// other shape.
+const workspacePage = `${fieldPanel}export function mount(container) { draw(container); }
+`;
 
 // The row a mock provider serves a workspace as; a case that seeds a row passes the id in.
 const mockWorkspaceRow = (id = '') => ({ id, label: '~', machine: 'local', running: true });
 
 // A workspace provider with no agent behind it: it serves the rows it is given and those the window makes, and a drop
 // asks it for a place among them, which is the whole of what Core's sidebar reads from a provider.
-const mockWorkspace = ({ id = 'workspace', rows = [], keys } = {}) => plugin(id, { 'main.cjs': `exports.activate = ({ ui }) => {
+//
+// A `ui` given here is drawn as this provider's page in the main pane, which is where a case about the keys looks for
+// its field.
+const mockWorkspace = ({ id = 'workspace', rows = [], keys, ui } = {}) => plugin(id, {
+  ...(ui ? { 'ui.js': ui } : {}),
+  'main.cjs': `exports.activate = ({ ui }) => {
   const rows = ${JSON.stringify(rows)};
   const template = ${JSON.stringify(mockWorkspaceRow())};
   ui.handle('workspaces', () => rows);
@@ -83,6 +109,19 @@ const makeGroup = async (page, name) => {
 const drawnOrder = (page) => page.locator('.workspaces').locator(':scope > :not(.workspace-line)').evaluateAll((nodes) => nodes.map((node) => node.classList.contains('workspace-group') ? node.querySelector('.workspace-group-bar .name').textContent : 'row'));
 
 const press = async (page, ...keys) => { for (const key of keys) await page.keyboard.press(key); };
+
+// Waits until the keys are in a field of the page a plugin draws.
+const keysIn = (page, id) => until(async () => {
+  const at = await page.evaluate(() => {
+    const active = document.activeElement;
+    const owner = active?.closest('[data-plugin]');
+    return owner ? { plugin: owner.dataset.plugin, field: active.tagName.toLowerCase() } : null;
+  });
+  return at?.plugin === id && at.field === 'input';
+});
+
+// Waits until a workspace is the one in front.
+const inFront = (page, id) => page.locator(`.workspace[aria-selected=true][data-workspace="${id}"]`).waitFor();
 
 // The names on the sidebar tabs, in the order they are drawn.
 const tabNames = (page) => viewTabs(page).locator('[role=tab]').allTextContents();
@@ -162,6 +201,6 @@ const rowIds = (locator) => locator.evaluateAll((nodes) => nodes.map((node) => n
 const rowId = (locator) => locator.first().evaluate((element) => element.dataset.workspace);
 
 module.exports = {
-  plugin, viewPlugin, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, tabNames, untilReading, untilTabs, watch,
+  plugin, viewPlugin, fieldPanel, workspacePage, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, keysIn, inFront, tabNames, untilReading, untilTabs, watch,
   groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
 };
