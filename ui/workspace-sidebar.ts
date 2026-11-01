@@ -455,6 +455,9 @@ export async function workspaceSidebar(options: {
     if (element) paint(element, row);
   };
 
+  // What a row draws beside its name is for the eye only: it is a tab, and its aria-label is what a reader hears. The bars
+  // are what an agent's workspace spins while it works: `bars-scale-middle` from svg-spinners (MIT).
+  const BARS = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="6" width="2.8" height="12"/><rect x="5.8" y="6" width="2.8" height="12"/><rect x="10.6" y="6" width="2.8" height="12"/><rect x="15.4" y="6" width="2.8" height="12"/><rect x="20.2" y="6" width="2.8" height="12"/></svg>`;
   const workspaceRow = (row: WorkspaceRow) => {
     const element = document.createElement('div');
     element.className = `workspace${row.id === active ? ' selected' : ''}`;
@@ -465,7 +468,9 @@ export async function workspaceSidebar(options: {
     element.draggable = true;
     const glyph = document.createElement('span');
     glyph.className = 'glyph';
-    glyph.textContent = [...row.label.trim()][0]?.toUpperCase() ?? '?';
+    // One node with three faces; the state the row is drawn in decides which one shows.
+    glyph.innerHTML = `<span class="letter" aria-hidden="true"></span>${BARS}<span class="check" aria-hidden="true">✓</span>`;
+    glyph.querySelector<HTMLElement>('.letter')!.textContent = [...row.label.trim()][0]?.toUpperCase() ?? '?';
     const text = document.createElement('span');
     text.className = 'text';
     const name = document.createElement('span');
@@ -483,7 +488,6 @@ export async function workspaceSidebar(options: {
     text.append(title, meta);
     const gitCell = document.createElement('span');
     gitCell.className = 'git';
-    // The row is a tab and its aria-label is what a reader hears, so these are for the eye only.
     gitCell.setAttribute('aria-hidden', 'true');
     changes.setAttribute('aria-hidden', 'true');
     element.append(glyph, text, gitCell);
