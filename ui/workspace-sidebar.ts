@@ -422,26 +422,27 @@ export async function workspaceSidebar(options: {
     element.dataset.state = drawn;
     element.setAttribute('aria-label', `${row.label} · ${row.machine} · ${agentStateLabels[drawn]}`);
   };
-  const paintGit = (cell: HTMLElement, git: WorkspaceGit | null) => {
-    const shown = git && (git.behind || git.ahead || git.dirty) ? git : null;
-    // Hidden, the cell reserves no width at the row's end.
-    cell.hidden = !shown;
+  const paintGit = (element: HTMLElement, git: WorkspaceGit | null) => {
+    const cell = element.querySelector<HTMLElement>('.git');
+    const mark = element.querySelector<HTMLElement>('.changes');
+    if (!cell || !mark) return;
+    const counts = git && (git.ahead || git.behind) ? git : null;
+    // Hidden, neither takes room: no commits either side leaves the row's end bare, no changes leaves the name bare.
+    cell.hidden = !counts;
+    mark.hidden = !git?.dirty;
     cell.replaceChildren();
-    if (!shown) {
-      cell.title = '';
-      return;
+    if (counts) {
+      const part = (text: string, className: string) => {
+        const span = document.createElement('span');
+        span.className = className;
+        span.textContent = text;
+        cell.append(span);
+      };
+      if (counts.behind) part(`↓${counts.behind}`, 'behind');
+      if (counts.ahead) part(`↑${counts.ahead}`, 'ahead');
     }
-    const part = (text: string, className: string) => {
-      const span = document.createElement('span');
-      span.className = className;
-      span.textContent = text;
-      cell.append(span);
-    };
-    if (shown.behind) part(`↓${shown.behind}`, 'behind');
-    if (shown.ahead) part(`↑${shown.ahead}`, 'ahead');
-    if (shown.dirty) part('*', 'dirty');
-    cell.title = [shown.branch, shown.behind && `${shown.behind} 个提交待拉取`, shown.ahead && `${shown.ahead} 个提交待推送`, shown.dirty && '有未提交的修改']
-      .filter(Boolean).join(' · ');
+    cell.title = git ? [git.branch, git.behind && `${git.behind} 个提交待拉取`, git.ahead && `${git.ahead} 个提交待推送`, git.dirty && '有未提交的修改']
+      .filter(Boolean).join(' · ') : '';
   };
   const rowOf = (id: string) => workspaceList.querySelector<HTMLElement>(`[data-workspace="${CSS.escape(id)}"]`);
   const patchState = (row: WorkspaceRow) => {
@@ -465,17 +466,24 @@ export async function workspaceSidebar(options: {
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = row.label;
+    const changes = document.createElement('span');
+    changes.className = 'changes';
+    changes.textContent = '*';
+    const title = document.createElement('span');
+    title.className = 'title';
+    title.append(name, changes);
     const meta = document.createElement('span');
     meta.className = 'meta';
     meta.textContent = row.machine;
-    text.append(name, meta);
+    text.append(title, meta);
     const gitCell = document.createElement('span');
     gitCell.className = 'git';
-    // The row is a tab and its aria-label is what a reader hears, so this cell is for the eye only.
+    // The row is a tab and its aria-label is what a reader hears, so these are for the eye only.
     gitCell.setAttribute('aria-hidden', 'true');
+    changes.setAttribute('aria-hidden', 'true');
     element.append(glyph, text, gitCell);
     paint(element, row);
-    paintGit(gitCell, gitStates.get(row.id) ?? null);
+    paintGit(element, gitStates.get(row.id) ?? null);
     onActivate(element, () => {
       // Looking at a workspace is what clears the completion it reported, and only that one.
       if (row.status === 'finished') acknowledged.add(row.id);
@@ -564,8 +572,8 @@ export async function workspaceSidebar(options: {
     const { id, git } = value as { id: string; git: WorkspaceGit | null };
     if (providerOf(id) === undefined) return;
     gitStates.set(id, git);
-    const cell = rowOf(id)?.querySelector<HTMLElement>('.git');
-    if (cell) paintGit(cell, git);
+    const element = rowOf(id);
+    if (element) paintGit(element, git);
   }));
   void refreshRows();
   /** Puts a workspace this provider serves in front, leaving one already in front alone. */

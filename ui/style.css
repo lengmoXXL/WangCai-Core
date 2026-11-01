@@ -27,6 +27,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace .glyph { display: grid; box-sizing: border-box; position: relative; flex: 0 0 24px; place-items: center; height: 24px; border: 1px solid color-mix(in srgb, var(--wc-foreground) 7%, transparent); border-radius: 6px; background: linear-gradient(160deg, color-mix(in srgb, var(--wc-overlay) 55%, var(--wc-surface)), var(--wc-surface)); color: color-mix(in srgb, var(--wc-foreground) 70%, var(--wc-muted)); font-size: 11px; font-weight: 600; }
 .workspace.selected .glyph { border-color: color-mix(in srgb, var(--wc-accent) 45%, transparent); color: var(--wc-foreground); }
 .workspace .text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+.workspace .title { display: flex; gap: 4px; align-items: baseline; min-width: 0; }
 .workspace .name, .workspace-group-bar .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace .name { color: color-mix(in srgb, var(--wc-foreground) 82%, var(--wc-muted)); }
 .workspace.selected .name { color: var(--wc-foreground); }
@@ -38,8 +39,8 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
    does, red for what git would pull in and green for what it would push out. */
 .workspace .git .behind { color: var(--wc-red); }
 .workspace .git .ahead { color: var(--wc-green); }
-/* The mark for changes stays the muted grey: it says something is waiting, without a colour of its own. */
-.workspace .git .dirty { color: color-mix(in srgb, var(--wc-muted) 82%, transparent); }
+/* The mark for changes hangs on the name: the muted grey, so it says something is waiting without a colour of its own. */
+.workspace .changes { flex: 0 0 auto; color: color-mix(in srgb, var(--wc-muted) 82%, transparent); }
 @property --wc-sweep { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
 .workspace[data-state=working] .glyph { border-color: transparent; }
 .workspace[data-state=working] .glyph::after { content: ''; position: absolute; inset: -1px; padding: 1px; border-radius: inherit; background: conic-gradient(from var(--wc-sweep), transparent 0 150deg, var(--wc-accent) 344deg, transparent 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: wc-agent-sweep 1.7s linear infinite; }
