@@ -15,6 +15,9 @@ const onActivate = (element: HTMLElement, action: () => void) => {
 
 type RenameTarget = { kind: 'workspace' | 'group'; id: string };
 
+/** What a provider reports in the `git` of a `workspace-git` payload, as the `@lengmoxxl/sdk` README describes it. */
+type WorkspaceGit = { branch: string; ahead: number; behind: number; dirty: boolean };
+
 /** What the list asks of the tab strip, which is the one that holds every tab. */
 interface WorkspaceTabs {
   /** Every tab that follows no workspace yet starts following this one. */
@@ -408,6 +411,7 @@ export async function workspaceSidebar(options: {
     return element;
   };
 
+  const gitStates = new Map<string, WorkspaceGit | null>();
   const acknowledged = new Set<string>();
   const agentStateLabels: Record<WorkspaceStatus, string> = { idle: '空闲', working: '工作中', finished: '已完成' };
   const paint = (element: HTMLElement, row: WorkspaceRow) => {
@@ -418,8 +422,30 @@ export async function workspaceSidebar(options: {
     element.dataset.state = drawn;
     element.setAttribute('aria-label', `${row.label} · ${row.machine} · ${agentStateLabels[drawn]}`);
   };
+  const paintGit = (cell: HTMLElement, git: WorkspaceGit | null) => {
+    // A repository with nothing waiting draws nothing and takes no room in the row either.
+    const shown = git && (git.behind || git.ahead || git.dirty) ? git : null;
+    cell.hidden = !shown;
+    cell.replaceChildren();
+    if (!shown) {
+      cell.title = '';
+      return;
+    }
+    const part = (text: string, className?: string) => {
+      const span = document.createElement('span');
+      if (className) span.className = className;
+      span.textContent = text;
+      cell.append(span);
+    };
+    if (shown.behind) part(`↓${shown.behind}`);
+    if (shown.ahead) part(`↑${shown.ahead}`);
+    if (shown.dirty) part('●', 'dirty');
+    cell.title = [shown.branch, shown.behind && `${shown.behind} 个提交待拉取`, shown.ahead && `${shown.ahead} 个提交待推送`, shown.dirty && '有未提交的修改']
+      .filter(Boolean).join(' · ');
+  };
+  const rowOf = (id: string) => workspaceList.querySelector<HTMLElement>(`[data-workspace="${CSS.escape(id)}"]`);
   const patchState = (row: WorkspaceRow) => {
-    const element = workspaceList.querySelector<HTMLElement>(`[data-workspace="${CSS.escape(row.id)}"]`);
+    const element = rowOf(row.id);
     if (element) paint(element, row);
   };
 
@@ -443,8 +469,13 @@ export async function workspaceSidebar(options: {
     meta.className = 'meta';
     meta.textContent = row.machine;
     text.append(name, meta);
-    element.append(glyph, text);
+    const gitCell = document.createElement('span');
+    gitCell.className = 'git';
+    // The row is a tab and its aria-label is what a reader hears, so this cell is for the eye only.
+    gitCell.setAttribute('aria-hidden', 'true');
+    element.append(glyph, text, gitCell);
     paint(element, row);
+    paintGit(gitCell, gitStates.get(row.id) ?? null);
     onActivate(element, () => {
       // Looking at a workspace is what clears the completion it reported, and only that one.
       if (row.status === 'finished') acknowledged.add(row.id);
@@ -490,6 +521,9 @@ export async function workspaceSidebar(options: {
   };
 
   const showRows = () => {
+    // What was said about a workspace no provider serves any more goes before the rows are drawn: an id used again starts
+    // out unsaid.
+    for (const id of [...gitStates.keys()]) if (providerOf(id) === undefined) gitStates.delete(id);
     // A group draws the rows it holds in the order the provider served them, not the order they joined in.
     const rows = servedRows();
     const top = topRows(rows);
@@ -525,6 +559,13 @@ export async function workspaceSidebar(options: {
     if (!rows || at < 0 || (rows[at].status ?? 'idle') === status) return;
     rows[at] = { ...rows[at], status };
     patchState(rows[at]);
+  }));
+  disposers.push(window.wangcai.subscribe('workspace-git', (value) => {
+    const { id, git } = value as { id: string; git: WorkspaceGit | null };
+    if (providerOf(id) === undefined) return;
+    gitStates.set(id, git);
+    const cell = rowOf(id)?.querySelector<HTMLElement>('.git');
+    if (cell) paintGit(cell, git);
   }));
   void refreshRows();
   /** Puts a workspace this provider serves in front, leaving one already in front alone. */
