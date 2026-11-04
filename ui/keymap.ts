@@ -145,9 +145,6 @@ const pageOf = (target: EventTarget | null) => target instanceof Element ? targe
 // Whether a field holds the keys: matching then takes only the bindings with `insert: true`.
 const isEditable = (target: EventTarget | null) => target instanceof Element && !!target.closest('input, textarea, [contenteditable=""], [contenteditable="true"]');
 
-// The most two Escapes can be apart and still leave the field.
-const LEAVE_FIELD = 300;
-
 function trieOf(bindings: KeymapPayload['bindings'], leader: Leader | undefined) {
   const root: Node = { children: new Map(), label: '' };
   for (const binding of bindings) {
@@ -174,9 +171,10 @@ function trieOf(bindings: KeymapPayload['bindings'], leader: Leader | undefined)
  * The window's side of the keymap. It picks the keys a press is judged by — the global ones, and inside a page those
  * plus the local keys that answer there — matches the press against them, and hands a whole match back to the main
  * process, where the bindings run. A prefix that could still grow waits out the timeout before it is run on its own,
- * and while it waits a hint lists what the next key may be. Two Escapes in a row in one field leave it instead, so that
- * page's local keys answer again; with no prefix waiting for its next key, the first of the two still reaches whatever
- * the field holds.
+ * and while it waits a hint lists what the next key may be. Ctrl+Shift+Q leaves the field, so that page's local keys
+ * answer again; an Escape on its own still belongs to whatever the field holds, however many times it is pressed, so
+ * that a field which is also an editor is not left without the keyboard by a reader leaving the insert mode — unless a
+ * prefix is waiting, which that Escape cancels.
  */
 export function bindKeys(config: KeymapPayload) {
   const leader = leaderOf(config.leader);
@@ -204,7 +202,6 @@ export function bindKeys(config: KeymapPayload) {
   document.body.append(hint);
   let pending: { node: Node; path: string[] } | undefined;
   let timer = 0;
-  let escaped: { target: Element; at: number } | undefined;
   const clear = () => {
     clearTimeout(timer);
     pending = undefined;
@@ -250,41 +247,32 @@ export function bindKeys(config: KeymapPayload) {
     if (!candidates.length) return;
     const field = isEditable(event.target);
     const page = pageOf(event.target);
-    const current = pending;
-    if (current && event.key === 'Escape') {
+    // Leaving the field is a shortcut rather than an Escape: macOS does not deliver an Escape held with Cmd to a window, so
+    // that press cannot be the one that leaves. A letter with two modifiers does arrive.
+    const leaving = field && event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'q';
+    if (leaving || (pending && event.key === 'Escape')) {
       event.preventDefault();
       event.stopPropagation();
       clear();
-      escaped = undefined;
+      // The page is what the local keys are matched by, so the focus goes there when the field is left — and the plugin of
+      // that page ends whatever the field was doing with its own keys. The page is not told it is on show: that would send
+      // the keys back into the field this press is leaving.
+      if (leaving) page?.focus();
       return;
-    }
-    if (event.key === 'Escape' && field) {
-      if (escaped?.target === event.target && event.timeStamp - escaped.at <= LEAVE_FIELD) {
-        event.preventDefault();
-        event.stopPropagation();
-        escaped = undefined;
-        // The page is what the local keys are matched by, so the focus goes there. The page is not told it is on show:
-        // that would send the keys back into the field this press is leaving.
-        page?.focus();
-        return;
-      }
-      escaped = { target: event.target as Element, at: event.timeStamp };
-    } else {
-      escaped = undefined;
     }
     // Only a first press picks the page's keys or the global ones; after that the sequence stays in the trie it
     // started in.
-    const level = current ? current.node.children : triesFor(page?.dataset.plugin, field).children;
+    const level = pending ? pending.node.children : triesFor(page?.dataset.plugin, field).children;
     for (const pressed of candidates) {
       const next = level.get(pressed);
       if (!next) continue;
       event.preventDefault();
       event.stopPropagation();
-      step(next, [...current?.path ?? [], next.label]);
+      step(next, [...pending?.path ?? [], next.label]);
       return;
     }
     // A press that continues nothing ends the sequence and is not consumed: the field or the window still gets it.
-    if (current) clear();
+    if (pending) clear();
   };
   window.addEventListener('keydown', onKeyDown, true);
   return () => {
