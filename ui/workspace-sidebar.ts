@@ -66,17 +66,12 @@ export async function workspaceSidebar(options: {
   // A drag is handled once, so the id it carries is taken before any branch below can return early.
   const takenRow = () => { const id = draggingRow!; draggingRow = undefined; return id; };
   const takenGroup = () => { const id = draggingGroup!; draggingGroup = undefined; return id; };
-  const workspaceHeader = document.createElement('header');
-  workspaceHeader.className = 'workspace-header';
-  const workspaceTitle = document.createElement('span');
-  workspaceTitle.textContent = '工作区';
-  workspaceHeader.append(workspaceTitle);
   const workspaceList = document.createElement('nav');
   workspaceList.className = 'workspaces';
   workspaceList.setAttribute('role', 'tablist');
   workspaceList.setAttribute('aria-label', '工作区');
   workspaceList.setAttribute('aria-orientation', 'vertical');
-  element.append(workspaceHeader, workspaceList);
+  element.append(workspaceList);
 
   // A workspace row is a draggable tab and a group bar folds where it stands, so renaming either asks in a
   // dialog rather than in place.
@@ -243,7 +238,6 @@ export async function workspaceSidebar(options: {
     rowMenu.replaceChildren(...items);
     clampMenu(rowMenu, at);
   };
-  workspaceHeader.oncontextmenu = openRowMenu;
   workspaceList.oncontextmenu = openRowMenu;
 
   const escapeOverlays = (event: KeyboardEvent) => { if (event.key === 'Escape') { hideRename(); hideRowMenu(); } };
