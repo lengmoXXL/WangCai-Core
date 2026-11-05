@@ -40,8 +40,8 @@ const chordKey = (chord: Chord) => `${Number(chord.ctrl)}${Number(chord.alt)}${N
 // Named keys are read without their case, and the leader is one of them.
 const isLeader = (token: string) => token.toLowerCase() === 'leader';
 
-/** The leader the main process settled on — a space unless init.ts names another: the chord it stands for, and the
- * label a hint shows for it. */
+/** The leader the main process settled on, unless init.ts names another: the chord it stands for, and the label a
+ * hint shows for it. */
 interface Leader { chord: Chord; label: string }
 
 /**

@@ -46,8 +46,7 @@ type Action = { event: string; data?: unknown } | { run(context: KeyContext): un
 type Written = { desc?: string; insert: boolean; action: Action };
 type Entry = { binding: KeyBinding; action: Action };
 
-/** A space, as in Vim, unless init.ts names another key. */
-const LEADER = ' ';
+const LEADER = '<C-Space>';
 /** How long a partly typed sequence waits for its next key. */
 const TIMEOUT = 800;
 

@@ -6,7 +6,7 @@
 
 ## 快捷键
 
-键位写在 `~/.config/wangcai/init.ts` 的 `keys` 里，用 Neovim 记法。`<leader>` 是前缀键，默认空格，用同一个文件
+键位写在 `~/.config/wangcai/init.ts` 的 `keys` 里，用 Neovim 记法。`<leader>` 是前缀键，默认 Ctrl+Space，用同一个文件
 顶层的 `leader` 改它。其余写法：空白只作分隔，空格键写 `<Space>`，字符的大写即 Shift，修饰符是 `<C-…>`、
 `<A-…>`（同 `<M-…>`）、`<D-…>`（Command）与 `<S-…>`，例如 `<leader>ff`、`<C-S-p>`、`g g`。
 
@@ -40,10 +40,11 @@ Core 自带的键位：
 
 | 键 | 插件 | 范围 |
 | --- | --- | --- |
-| `<leader>aa` | terminal-agent | `global` |
-| `<leader>ff` | files | `global` |
-| `<leader>gg` | git | `global` |
-| `<leader>tt` | terminal | `global` |
+| `<leader>a` | terminal-agent | `global` |
+| `<leader>e` | editor | `global` |
+| `<leader>f` | files | `global` |
+| `<leader>g` | git | `global` |
+| `<leader>t` | terminal | `global` |
 
 写法不同但按出来一样的（`<Leader>f` 与 `<leader>f`）算同一个序列。
 
@@ -56,7 +57,6 @@ Core 自带的键位：
 import { appendFileSync } from 'node:fs';
 
 export default {
-  leader: ' ',
   timeout: 800,           // 前缀等下一个键的时间，毫秒
   keys: {
     '<leader>p': { event: 'plugin-page', desc: '打开插件页', global: true },

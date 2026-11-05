@@ -29,10 +29,8 @@ const provided = plugin('provided', { [uiFile]: probeUi }, {
 // The timeout init.ts is given, so a case can wait past it and know a prefix has run out.
 const TIMEOUT = 1000;
 
-// init.ts as these cases write it: a fixed leader and that timeout, the plugins a case gives, and the keys and
-// commands under test.
+// init.ts as these cases write it: that timeout, the plugins a case gives, and the keys and commands under test.
 const writeInit = (home, keys, tabs, commands = '{}') => writeFileSync(join(home, '.config/wangcai/init.ts'), `export default {
-  leader: ' ',
   timeout: ${TIMEOUT},
   tabs: [${tabs.map((tab) => JSON.stringify({ id: tab.id, directory: tab.directory })).join(', ')}],
   keys: ${keys},
@@ -64,13 +62,13 @@ const withProbe = (prefix, { keys, commands }, body) => withHome(prefix, {}, asy
 const focusPage = async (page, name) => pluginPage(page, name).click();
 const leavePage = (page) => page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
 
-// init.ts is given the space bar as its leader, which a case presses by the name the keyboard uses for it. A sequence is
-// written as init.ts writes it — either a run of keys or keys spaced out — and each key is pressed on its own.
+// A sequence is written as init.ts writes it — either a run of keys or keys spaced out — and each key is pressed on its
+// own.
 const pressedFor = (sequence) => sequence
-  .replace(/<leader>/i, 'Space ')
+  .replace(/<leader>/i, 'Control+Space ')
   .split(' ')
   .filter(Boolean)
-  .flatMap((key) => (key === 'Space' ? [key] : [...key]));
+  .flatMap((key) => (key.includes('+') ? [key] : [...key]));
 
 // The hint the keymap shows while a prefix waits for its next key.
 const hint = (page) => page.locator('.which-key');
