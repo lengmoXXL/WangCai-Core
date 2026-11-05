@@ -10,7 +10,7 @@ import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
 
 // The keys Core binds by itself.
-const DEFAULT_KEYS = { '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页' } };
+const DEFAULT_KEYS = { '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页', insert: true } };
 
 // A previewed page is made of inline scripts and remote assets, which the renderer's CSP forbids; serving it
 // from its own scheme gives it a policy of its own, and the sandboxed frame keeps the page off the shell.

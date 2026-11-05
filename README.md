@@ -34,17 +34,17 @@ Core 自带的键位：
 
 | 键 | 作用 | 范围 |
 | --- | --- | --- |
-| `<leader>w` | 关闭当前标签页 | `global` |
+| `<leader>w` | 关闭当前标签页 | `global`、`insert` |
 
 插件自带的键位：
 
 | 键 | 插件 | 范围 |
 | --- | --- | --- |
-| `<leader>a` | terminal-agent | `global` |
-| `<leader>e` | editor | `global` |
-| `<leader>f` | files | `global` |
-| `<leader>g` | git | `global` |
-| `<leader>t` | terminal | `global` |
+| `<leader>a` | terminal-agent | `global`、`insert` |
+| `<leader>e` | editor | `global`、`insert` |
+| `<leader>f` | files | `global`、`insert` |
+| `<leader>g` | git | `global`、`insert` |
+| `<leader>t` | terminal | `global`、`insert` |
 
 写法不同但按出来一样的（`<Leader>f` 与 `<leader>f`）算同一个序列。
 
