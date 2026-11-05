@@ -14,9 +14,13 @@ test('a group is made, renamed, folded, moved and remembered', { timeout: 180000
   const onlyRow = await rowId(rows.first());
   await makeGroup(page, '一组');
   await untilReading(() => rowIds(groups.locator('.workspace')), [], 'a fresh group holds nothing');
-  // The group's twistie starts at the edge of a row's card.
-  const leftOf = (locator) => locator.evaluate((element) => element.getBoundingClientRect().left);
-  assert.ok(Math.abs((await leftOf(groups.locator('.chevron'))) - (await leftOf(rows.first()))) < 1, 'the group icon starts at the edge of a row');
+  const boxOf = (locator) => locator.evaluate((element) => {
+    const { left, right } = element.getBoundingClientRect();
+    return { left, right };
+  });
+  const twistie = await boxOf(groups.locator('.chevron'));
+  const barName = await boxOf(groups.locator('.workspace-group-bar .name'));
+  assert.ok(barName.left >= twistie.right, 'the group is named after its twistie');
   const angle = () => groups.locator('.chevron').evaluate((element) => {
     const matrix = getComputedStyle(element).transform;
     if (matrix === 'none') return 0;

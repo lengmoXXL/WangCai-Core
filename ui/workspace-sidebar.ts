@@ -419,6 +419,22 @@ export async function workspaceSidebar(options: {
   const gitStates = new Map<string, WorkspaceGit | null>();
   const acknowledged = new Set<string>();
   const agentStateLabels: Record<WorkspaceStatus, string> = { idle: '空闲', working: '工作中', finished: '已完成' };
+
+  // The circle a working workspace turns.
+  const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let frame = 0;
+  let timer = 0;
+  const spinning = () => !closing() && workspaceList.querySelector('.workspace[data-state="working"]') !== null;
+  const markOf = (state: WorkspaceStatus) =>
+    state === 'working' ? FRAMES[frame] : state === 'finished' ? '✓' : '';
+  const turn = () => {
+    frame = (frame + 1) % FRAMES.length;
+    for (const mark of workspaceList.querySelectorAll<HTMLElement>('.workspace[data-state="working"] .state')) mark.textContent = markOf('working');
+    timer = spinning() ? window.setTimeout(turn, 80) : 0;
+  };
+  const turnIfWorking = () => { if (!timer && spinning()) turn(); };
+  disposers.push(() => clearTimeout(timer));
+
   const paint = (element: HTMLElement, row: WorkspaceRow) => {
     const status = row.status ?? 'idle';
     // A remembered finish would hide the next one, so any other state drops it.
@@ -426,11 +442,12 @@ export async function workspaceSidebar(options: {
     const drawn = acknowledged.has(row.id) ? 'idle' : status;
     element.dataset.state = drawn;
     element.setAttribute('aria-label', `${row.label} · ${row.machine} · ${agentStateLabels[drawn]}`);
+    element.querySelector<HTMLElement>('.state')!.textContent = markOf(drawn);
+    turnIfWorking();
   };
   const paintGit = (element: HTMLElement, git: WorkspaceGit | null) => {
-    const cell = element.querySelector<HTMLElement>('.git');
-    const mark = element.querySelector<HTMLElement>('.changes');
-    if (!cell || !mark) return;
+    const cell = element.querySelector<HTMLElement>('.git')!;
+    const mark = element.querySelector<HTMLElement>('.changes')!;
     const counts = git && (git.ahead || git.behind) ? git : null;
     // Hidden, neither takes room: no commits either side leaves the row's end bare, no changes leaves the name bare.
     cell.hidden = !counts;
@@ -455,9 +472,6 @@ export async function workspaceSidebar(options: {
     if (element) paint(element, row);
   };
 
-  // What a row draws beside its name is for the eye only: it is a tab, and its aria-label is what a reader hears. The bars
-  // are what an agent's workspace spins while it works: `bars-scale-middle` from svg-spinners (MIT).
-  const BARS = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="6" width="2.8" height="12"/><rect x="5.8" y="6" width="2.8" height="12"/><rect x="10.6" y="6" width="2.8" height="12"/><rect x="15.4" y="6" width="2.8" height="12"/><rect x="20.2" y="6" width="2.8" height="12"/></svg>`;
   const workspaceRow = (row: WorkspaceRow) => {
     const element = document.createElement('div');
     element.className = `workspace${row.id === active ? ' selected' : ''}`;
@@ -466,31 +480,24 @@ export async function workspaceSidebar(options: {
     element.dataset.workspace = row.id;
     element.tabIndex = 0;
     element.draggable = true;
-    const glyph = document.createElement('span');
-    glyph.className = 'glyph';
-    // One node with three faces; the state the row is drawn in decides which one shows.
-    glyph.innerHTML = `<span class="letter" aria-hidden="true"></span>${BARS}<span class="check" aria-hidden="true">✓</span>`;
-    glyph.querySelector<HTMLElement>('.letter')!.textContent = [...row.label.trim()][0]?.toUpperCase() ?? '?';
-    const text = document.createElement('span');
-    text.className = 'text';
+    const state = document.createElement('span');
+    state.className = 'state';
+    state.setAttribute('aria-hidden', 'true');
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = row.label;
     const changes = document.createElement('span');
     changes.className = 'changes';
     changes.textContent = '*';
-    const title = document.createElement('span');
-    title.className = 'title';
-    title.append(name, changes);
-    const meta = document.createElement('span');
-    meta.className = 'meta';
-    meta.textContent = row.machine;
-    text.append(title, meta);
+    changes.setAttribute('aria-hidden', 'true');
     const gitCell = document.createElement('span');
     gitCell.className = 'git';
     gitCell.setAttribute('aria-hidden', 'true');
-    changes.setAttribute('aria-hidden', 'true');
-    element.append(glyph, text, gitCell);
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = row.machine;
+    // The machine comes last, so a long name eats into the middle of the line rather than into the address of the machine.
+    element.append(state, name, changes, gitCell, meta);
     paint(element, row);
     paintGit(element, gitStates.get(row.id) ?? null);
     onActivate(element, () => {
@@ -514,7 +521,7 @@ export async function workspaceSidebar(options: {
     bar.setAttribute('aria-expanded', String(!group.collapsed));
     bar.tabIndex = 0;
     bar.draggable = true;
-    bar.innerHTML = '<svg class="chevron" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.14598 5.85423L7.64598 10.3542C7.84098 10.5492 8.15798 10.5492 8.35298 10.3542L12.853 5.85423C13.048 5.65923 13.048 5.34223 12.853 5.14723C12.658 4.95223 12.341 4.95223 12.146 5.14723L7.99998 9.29323L3.85398 5.14723C3.65898 4.95223 3.34198 4.95223 3.14698 5.14723C2.95198 5.34223 2.95098 5.65923 3.14598 5.85423Z"/></svg>';
+    bar.innerHTML = '<svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 5.9 8 10.8l4.9-4.9Z"/></svg>';
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = group.name;
@@ -561,6 +568,7 @@ export async function workspaceSidebar(options: {
     }
     children.push(listLine({ slot: top.length, last: true }));
     workspaceList.replaceChildren(...children);
+    turnIfWorking();
     drawnShape = shapeOf(rows);
     drawnMembers = membersOf(rows);
   };

@@ -16,49 +16,30 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 /* A hairline overlays the list end to end, so no row background can interrupt it. */
 .sidebar-left { position: relative; padding-top: var(--wc-chrome); background: var(--wc-surface); -webkit-app-region: drag; }
 .sidebar-left::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px; background: var(--wc-border); pointer-events: none; }
-/* The heading starts where a row's glyph does, so the list reads as one column. */
-.workspace-header { flex-shrink: 0; display: flex; align-items: center; height: 32px; padding: 0 7px; color: var(--wc-muted); font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; -webkit-app-region: no-drag; }
+.workspace-header { flex-shrink: 0; display: flex; align-items: center; height: 32px; padding: 0 7px; box-shadow: inset 0 -1px 0 var(--wc-border); color: var(--wc-muted); font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; -webkit-app-region: no-drag; }
 .workspaces { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 1px 10px; -webkit-app-region: no-drag; }
 /* A bar here would narrow the rows; the list still scrolls by wheel. */
 .workspaces::-webkit-scrollbar { display: none; }
-/* A row is a card: a mark that says what the workspace is doing leads, and its name sits over the machine. */
-.workspace { display: flex; gap: 9px; align-items: center; height: 36px; padding: 0 6px; font-size: 12px; cursor: pointer; }
-.workspace.selected { box-shadow: inset 0 0 0 1px var(--wc-border); background: var(--wc-background); }
-.workspace .glyph { display: grid; box-sizing: border-box; flex: 0 0 24px; place-items: center; height: 24px; border: 1px solid color-mix(in srgb, var(--wc-foreground) 7%, transparent); border-radius: 6px; background: linear-gradient(160deg, color-mix(in srgb, var(--wc-overlay) 55%, var(--wc-surface)), var(--wc-surface)); color: color-mix(in srgb, var(--wc-foreground) 70%, var(--wc-muted)); font-size: 11px; font-weight: 600; }
-.workspace.selected .glyph { border-color: color-mix(in srgb, var(--wc-accent) 45%, transparent); color: var(--wc-foreground); }
-.workspace .text { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
-.workspace .title { display: flex; gap: 4px; align-items: baseline; min-width: 0; }
+.workspace { display: flex; align-items: center; height: 22px; padding: 0 8px 0 12px; font-size: 12px; cursor: pointer; }
+.workspace.selected { background: var(--wc-background); box-shadow: inset 0 0 0 1px var(--wc-border); }
+/* The slot keeps its width while it is empty, so a row that starts working does not shift its name. */
+.workspace .state { flex: 0 0 12px; color: var(--wc-accent); font-size: 11px; line-height: 1; }
+.workspace[data-state=finished] .state { color: var(--wc-green); }
 .workspace .name, .workspace-group-bar .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workspace .name { color: color-mix(in srgb, var(--wc-foreground) 82%, var(--wc-muted)); }
+.workspace .name { margin-left: 2px; color: color-mix(in srgb, var(--wc-foreground) 85%, var(--wc-muted)); }
 .workspace.selected .name { color: var(--wc-foreground); }
-.workspace .meta { overflow: hidden; color: color-mix(in srgb, var(--wc-muted) 78%, transparent); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-/* The cell sits on the row's lower right, level with the machine under the name. */
-.workspace .git { display: flex; flex: 0 0 auto; align-self: flex-end; gap: 4px; padding: 0 2px 5px 0; font-size: 10px; font-variant-numeric: tabular-nums; line-height: 1; }
+.workspace .git { display: flex; flex: 0 0 auto; gap: 4px; margin-left: 6px; font-size: 10px; font-variant-numeric: tabular-nums; line-height: 1; }
 .workspace .git[hidden] { display: none; }
 /* The counts borrow the interface red and green on purpose: a `↓`/`↑` pair reads the way a shell prompt's git segment
    does, red for what git would pull in and green for what it would push out. */
 .workspace .git .behind { color: var(--wc-red); }
 .workspace .git .ahead { color: var(--wc-green); }
 /* The mark for changes hangs on the name: the muted grey, so it says something is waiting without a colour of its own. */
-.workspace .changes { flex: 0 0 auto; color: color-mix(in srgb, var(--wc-muted) 82%, transparent); }
-.workspace .glyph > svg { display: none; width: 16px; height: 16px; }
-.workspace .glyph > .check { display: none; }
-.workspace[data-state=working] .glyph > .letter, .workspace[data-state=finished] .glyph > .letter { display: none; }
-.workspace[data-state=working] .glyph { color: var(--wc-accent); }
-.workspace[data-state=working] .glyph > svg { display: block; }
-.workspace[data-state=finished] .glyph { border-color: var(--wc-green); color: var(--wc-green); }
-.workspace[data-state=finished] .glyph > .check { display: block; }
-.workspace .glyph > svg rect { fill: currentColor; animation: wc-bars 0.9s infinite; }
-.workspace .glyph > svg rect:nth-child(1), .workspace .glyph > svg rect:nth-child(5) { animation-delay: -0.5s; }
-.workspace .glyph > svg rect:nth-child(2), .workspace .glyph > svg rect:nth-child(4) { animation-delay: -0.7s; }
-@keyframes wc-bars {
-  0%, 66.66% { animation-timing-function: cubic-bezier(0.14, 0.73, 0.34, 1); y: 6px; height: 12px; }
-  33.33% { animation-timing-function: cubic-bezier(0.65, 0.26, 0.82, 0.45); y: 1px; height: 22px; }
-}
-/* A group bar starts where a row's card does, so its twistie sits on the list's edge. */
-.workspace-group-bar { display: flex; gap: 4px; align-items: center; height: 14px; margin-bottom: 2px; padding: 0 6px 0 0; color: var(--wc-muted); font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; cursor: pointer; }
-/* A row a group holds steps in a little from the bar, and a line inside a group starts where that row's glyph does. */
-.workspace-group-rows { --wc-group-indent: 8px; }
+.workspace .changes { flex: 0 0 auto; margin-left: 4px; color: color-mix(in srgb, var(--wc-muted) 82%, transparent); }
+.workspace .meta { flex: 0 0 auto; max-width: 40%; margin-left: auto; padding-left: 8px; overflow: hidden; color: var(--wc-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-group-bar { display: flex; gap: 2px; align-items: center; height: 22px; padding: 0 6px 0 8px; color: var(--wc-foreground); font-size: 11px; font-weight: 700; letter-spacing: .02em; cursor: pointer; }
+/* A row a group holds steps in one slot, so a row outside every group still reads as standing on its own. */
+.workspace-group-rows { --wc-group-indent: 24px; }
 .workspace-group-rows .workspace { padding-left: var(--wc-group-indent); }
 /* A line keeps a pixel of height and sits above the entry it belongs to, so a drag can be aimed at it at all. */
 .workspace-line { position: relative; z-index: 1; height: 1px; }
@@ -74,8 +55,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace-line.inside::after { left: var(--wc-group-indent); }
 .workspace-line[data-drop=line]::after { background: var(--wc-accent); }
 .workspace:focus-visible, .workspace-group-bar:focus-visible { outline: 2px solid var(--wc-accent); outline-offset: -2px; }
-/* The twistie is VS Code's codicon chevron-down: filled, not stroked. */
-.workspace-group-bar .chevron { flex: 0 0 24px; height: 14px; fill: currentColor; }
+.workspace-group-bar .chevron { flex: 0 0 12px; height: 12px; fill: currentColor; opacity: .8; }
 .workspace-group:has(.workspace-group-rows[hidden]) .chevron { transform: rotate(-90deg); }
 /* A bar in the tab strip would take its height out of the tabs, so the strip scrolls with no bar of its own. */
 .sidebar-tabs::-webkit-scrollbar { display: none; }
