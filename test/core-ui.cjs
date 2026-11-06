@@ -2,7 +2,28 @@ const assert = require('node:assert/strict');
 const { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { dirname, join } = require('node:path');
-const { openWorkspaceMenu, until, viewTabs, withHome } = require('@lengmoxxl/wangcai-testkit');
+const { until, withHome } = require('@lengmoxxl/wangcai-testkit');
+
+// What a case does to the window's own chrome.
+//
+// The menu that makes a workspace is the space under the rows: the rows have to end above the list's bottom edge, so the
+// click lands on the list rather than on a row.
+const openWorkspaceMenu = async (page) => {
+  const list = page.locator('.workspaces');
+  const box = await list.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 4, { button: 'right' });
+};
+
+// A view is opened from the sidebar's `+`, which is off screen while the sidebar is: it is shown first.
+const openView = async (page, name) => {
+  const newTab = page.getByRole('button', { name: '新建侧栏标签页' });
+  if (!(await newTab.isVisible())) await page.getByRole('button', { name: '切换右侧栏' }).click();
+  await newTab.click();
+  await page.locator('#view-menu').getByRole('button', { name, exact: true }).click();
+};
+
+const viewTabs = (page) => page.locator('.sidebar-tab:visible');
+const closeView = (page) => page.locator('.sidebar-tab:has([aria-selected=true]) .close-tab').click();
 
 // The plugins a case launches are mocks: the real ones live in repositories of their own. They are written under one
 // directory per run, which this process removes when it ends.
@@ -201,6 +222,6 @@ const rowIds = (locator) => locator.evaluateAll((nodes) => nodes.map((node) => n
 const rowId = (locator) => locator.first().evaluate((element) => element.dataset.workspace);
 
 module.exports = {
-  plugin, viewPlugin, fieldPanel, workspacePage, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, keysIn, inFront, tabNames, untilReading, untilTabs, watch,
+  plugin, viewPlugin, fieldPanel, workspacePage, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, keysIn, inFront, tabNames, untilReading, untilTabs, watch, openView, viewTabs, closeView,
   groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
 };

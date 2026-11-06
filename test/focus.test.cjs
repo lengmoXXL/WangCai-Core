@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { closeView, openView, viewTabs, withHome } = require('@lengmoxxl/wangcai-testkit');
-const { fieldPanel, inFront, keysIn, mockWorkspace, mockWorkspaceRow, viewPlugin, watch, workspacePage } = require('./core-ui.cjs');
+const { withHome } = require('@lengmoxxl/wangcai-testkit');
+const { closeView, fieldPanel, inFront, keysIn, mockWorkspace, mockWorkspaceRow, openView, viewPlugin, viewTabs, watch, workspacePage } = require('./core-ui.cjs');
 
 test('a switch hands the keys to the field of the page it switches to', { timeout: 180000 }, () => {
   const lists = {

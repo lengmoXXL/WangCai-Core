@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { openView, until, viewTabs, withHome } = require('@lengmoxxl/wangcai-testkit');
-const { untilTabs, viewPlugin, watch, workspaceLists, workspaces } = require('./core-ui.cjs');
+const { until, withHome } = require('@lengmoxxl/wangcai-testkit');
+const { openView, untilTabs, viewPlugin, viewTabs, watch, workspaceLists, workspaces } = require('./core-ui.cjs');
 
 test('sidebar tabs can be dragged into a new order', { timeout: 180000 }, () => withHome('wangcai-tab-order', workspaceLists([viewPlugin('files', '文件'), viewPlugin('terminal', '终端')]), async ({ open }) => {
   let { page, close } = await open();

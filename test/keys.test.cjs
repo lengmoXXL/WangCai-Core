@@ -2,8 +2,8 @@ const assert = require('node:assert/strict');
 const { writeFileSync } = require('node:fs');
 const { test } = require('node:test');
 const { join } = require('node:path');
-const { openView, until, withHome, withWindow } = require('@lengmoxxl/wangcai-testkit');
-const { plugin, press, untilTabs, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
+const { until, withHome, withWindow } = require('@lengmoxxl/wangcai-testkit');
+const { openView, plugin, press, untilTabs, viewPlugin, watch, workspaceLists } = require('./core-ui.cjs');
 
 // The event a keymap binding publishes, which is what a view here says out.
 const probeEvent = 'keys-probe';

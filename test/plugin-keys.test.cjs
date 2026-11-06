@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { openView, until, withHome } = require('@lengmoxxl/wangcai-testkit');
-const { fieldPanel, inFront, keysIn, mockWorkspace, mockWorkspaceRow, press, tabNames, untilTabs, viewPlugin, watch, workspaceLists, workspacePage } = require('./core-ui.cjs');
+const { until, withHome } = require('@lengmoxxl/wangcai-testkit');
+const { fieldPanel, inFront, keysIn, mockWorkspace, mockWorkspaceRow, openView, press, tabNames, untilTabs, viewPlugin, watch, workspaceLists, workspacePage } = require('./core-ui.cjs');
 
 // The provider the key in this file names: it serves `w1` and draws a page of its own, so a case can read where the keys
 // went.
