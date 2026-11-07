@@ -250,6 +250,8 @@ export async function workspaceSidebar(options: {
     const provider = providerOf(id);
     if (!provider) return;
     active = id;
+    // Looking at a workspace is what clears the completion it reported, and only that one.
+    if (servedRows().find((row) => row.id === id)?.status === 'finished') acknowledged.add(id);
     tabs.rebind(id);
     showRows();
     tabs.settle(active);
@@ -466,6 +468,52 @@ export async function workspaceSidebar(options: {
     if (element) paint(element, row);
   };
 
+  // The keys walk the list where the eye is: j and k move the cursor a line at a time and leave the workspace in front
+  // alone, l switches to the line under the cursor — which is where the keys go — and h folds the group it sits in.
+  const LINES = '.workspace, .workspace-group-bar';
+  const visibleLines = () =>
+    [...workspaceList.querySelectorAll<HTMLElement>(LINES)].filter((line) => line.offsetParent !== null);
+  const cursorLine = () =>
+    document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>(LINES) : null;
+  const focusedGroup = () => {
+    const id = cursorLine()?.closest<HTMLElement>('.workspace-group')?.dataset.group;
+    return id === undefined ? undefined : groupById(id);
+  };
+  // A fold is the bar's own click, which writes it down and draws it where it stands. Folding under the keys takes them
+  // to the bar, since the row they were on is the one that went.
+  const foldFocusedGroup = (open: boolean) => {
+    const group = focusedGroup();
+    if (!group || group.collapsed === !open) return;
+    const bar = workspaceList.querySelector<HTMLElement>(`.workspace-group[data-group="${CSS.escape(group.id)}"] .workspace-group-bar`);
+    bar?.click();
+    if (!open) bar?.focus();
+  };
+  const stepCursor = (step: number) => {
+    const lines = visibleLines();
+    if (!lines.length) return;
+    const cursor = cursorLine();
+    const at = cursor ? lines.indexOf(cursor) : -1;
+    lines[at < 0 ? 0 : Math.min(lines.length - 1, Math.max(0, at + step))].focus();
+  };
+  // A row is entered as a switch; a group's bar only opens the rows under it.
+  const openFocused = () => {
+    const id = cursorLine()?.dataset.workspace;
+    if (id !== undefined) selectWorkspace(id);
+    else foldFocusedGroup(true);
+  };
+  const onListKeys = (event: KeyboardEvent) => {
+    if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+    if (event.key === 'j' || event.key === 'k') stepCursor(event.key === 'j' ? 1 : -1);
+    else if (event.key === 'h') foldFocusedGroup(false);
+    else if (event.key === 'l') openFocused();
+    else return;
+    event.preventDefault();
+  };
+  // Focusable without a tab stop, so a list with no row to stand on still takes the keys.
+  workspaceList.tabIndex = -1;
+  workspaceList.addEventListener('keydown', onListKeys);
+  disposers.push(() => workspaceList.removeEventListener('keydown', onListKeys));
+
   const workspaceRow = (row: WorkspaceRow) => {
     const element = document.createElement('div');
     element.className = `workspace${row.id === active ? ' selected' : ''}`;
@@ -494,11 +542,7 @@ export async function workspaceSidebar(options: {
     element.append(state, name, changes, gitCell, meta);
     paint(element, row);
     paintGit(element, gitStates.get(row.id) ?? null);
-    onActivate(element, () => {
-      // Looking at a workspace is what clears the completion it reported, and only that one.
-      if (row.status === 'finished') acknowledged.add(row.id);
-      selectWorkspace(row.id);
-    });
+    onActivate(element, () => selectWorkspace(row.id));
     dragSource(element, () => { draggingRow = row.id; }, () => { draggingRow = undefined; }, workspaceList);
     return element;
   };
@@ -607,5 +651,12 @@ export async function workspaceSidebar(options: {
     return true;
   };
 
-  return { element, reveal, pageInFront };
+  /** Puts the keys in the list, on the workspace in front or on the first row drawn; the list itself when it is empty. */
+  const takeKeys = () => {
+    const rows = [...workspaceList.querySelectorAll<HTMLElement>('.workspace')].filter((row) => row.offsetParent !== null);
+    const row = rows.find((element) => element.dataset.workspace === active) ?? rows[0];
+    if (row) row.focus(); else workspaceList.focus();
+  };
+
+  return { element, reveal, pageInFront, takeKeys };
 }

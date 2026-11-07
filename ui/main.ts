@@ -58,6 +58,10 @@ async function start() {
   });
   root.append(workspaceColumn.element, main, tabStrip.element);
   sidebarDividers(root, workspaceColumn.element, tabStrip.element, disposers);
+  // The two keys move the focus across the pane in the middle: to the list of workspaces on its left, and to the page
+  // on its right — the tab in front of the sidebar, or the page the workspace draws.
+  window.wangcai.subscribe('core:focus-workspaces', () => workspaceColumn.takeKeys());
+  window.wangcai.subscribe('core:focus-pane', () => tabStrip.takeKeys());
 
   const opens = new Map<string, (record?: TabRecord) => Promise<void>>();
   for (const plugin of plugins) {

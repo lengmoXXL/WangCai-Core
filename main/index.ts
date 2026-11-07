@@ -9,8 +9,13 @@ import { keymapOf } from './keymap';
 import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
 
-// The keys Core binds by itself.
-const DEFAULT_KEYS = { '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页', insert: true } };
+// The keys Core binds by itself. Ctrl+h and Ctrl+l are what moves between the workspace list on the left and the page
+// on its right, so they answer inside a field too: a terminal is where the keys most often are.
+const DEFAULT_KEYS = {
+  '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页', insert: true },
+  '<C-h>': { event: 'core:focus-workspaces', desc: '焦点到工作区侧栏', insert: true },
+  '<C-l>': { event: 'core:focus-pane', desc: '焦点到右侧页面', insert: true },
+};
 
 // A previewed page is made of inline scripts and remote assets, which the renderer's CSP forbids; serving it
 // from its own scheme gives it a policy of its own, and the sandboxed frame keeps the page off the shell.
