@@ -26,8 +26,8 @@ interface WorkspaceTabs {
   closeGone(ids: string[]): void;
   /** The tab state is written down and drawn around the workspace in front. */
   settle(id: string | undefined): void;
-  /** The keys go to the tab in front, or to the page in the main pane when no tab is in front. */
-  takeKeys(): void;
+  /** The keys go to this page, else to the tab in front, else to the page in the main pane. */
+  takeKeys(page?: HTMLElement): void;
 }
 
 /** The left sidebar: one row per workspace a provider serves, gathered under the groups the window holds. */
@@ -246,14 +246,14 @@ export async function workspaceSidebar(options: {
 
   // A workspace that is chosen is a switch to it, so the keys follow: `settle` only puts the tabs back in order, which it
   // also does when the rows change.
-  const selectWorkspace = (id: string) => {
+  const selectWorkspace = (id: string, page?: HTMLElement) => {
     const provider = providerOf(id);
     if (!provider) return;
     active = id;
     tabs.rebind(id);
     showRows();
     tabs.settle(active);
-    tabs.takeKeys();
+    tabs.takeKeys(page);
     void call('request', provider, 'workspace-select', { id }).catch(console.error);
   };
 
@@ -587,25 +587,25 @@ export async function workspaceSidebar(options: {
     if (element) paintGit(element, git);
   }));
   void refreshRows();
-  /** Puts a workspace this provider serves in front with the keys, leaving one already in front where it is; false when
-   * the provider serves no workspace. */
+  /** A plugin whose views are sidebar tabs has no page in the main pane: Core keeps it hidden. */
+  const pageOf = (provider: string) => document.querySelector<HTMLElement>(`.desktop-main > [data-plugin="${provider}"]:not([hidden])`) ?? undefined;
+  const pageInFront = () => {
+    const provider = active === undefined ? undefined : providerOf(active);
+    return provider ? pageOf(provider) : undefined;
+  };
+  /** Brings the workspace this provider serves in front, with the keys in the page it draws there when it draws one; false
+   * when it serves none. */
   const reveal = (provider: string) => {
+    const page = pageOf(provider);
     if (active !== undefined && providerOf(active) === provider) {
-      tabs.takeKeys();
+      tabs.takeKeys(page);
       return true;
     }
     const row = rowsByProvider.get(provider)?.[0];
     if (!row) return false;
-    selectWorkspace(row.id);
+    selectWorkspace(row.id, page);
     return true;
   };
-  /** The page of the provider that serves the workspace in front, as drawn in the main pane. */
-  const page = () => {
-    const provider = active === undefined ? undefined : providerOf(active);
-    return provider
-      ? document.querySelector<HTMLElement>(`.desktop-main > [data-plugin="${provider}"]:not([hidden])`) ?? undefined
-      : undefined;
-  };
 
-  return { element, reveal, page };
+  return { element, reveal, pageInFront };
 }

@@ -52,10 +52,10 @@ test('a workspace provider key switches to its workspace', { timeout: 180000 }, 
   });
 });
 
-test('a key naming the workspace already in front hands the tab in front the keys', { timeout: 180000 }, () => {
+test('a key naming the workspace in front hands that provider its page, not the tab in front', { timeout: 180000 }, () => {
   const lists = {
     workspaces: [provider()],
-    // A tab of the workspace in front, so its page has something in front of it.
+    // A tab drawn in every workspace: without the page the key names, the keys would go to its panel.
     tabs: [viewPlugin('view', '视图', { draw: fieldPanel })],
   };
   return withHome('wangcai-plugin-workspace-in-front', lists, async ({ open }) => {
@@ -64,48 +64,10 @@ test('a key naming the workspace already in front hands the tab in front the key
     await inFront(page, 'w1');
     await openView(page, '视图');
     await keysIn(page, 'view');
-    // A field keeps the keys typed into it.
+    // This key is not bound inside a field, so the field lets go of the keys before the press.
     await page.evaluate(() => document.activeElement?.blur());
     await press(page, 'Control+Space', 'a');
-    // Nothing switches, so the tab in front of the workspace the key names takes the keys.
-    await keysIn(page, 'view');
-    assert.deepEqual(errors, []);
-  });
-});
-
-test('a key naming the workspace in front hands the page beside the sidebar the keys while it is hidden', { timeout: 180000 }, () => {
-  const lists = {
-    workspaces: [provider()],
-    // A tab of the workspace in front, which is the one the sidebar hides with itself.
-    tabs: [viewPlugin('view', '视图', { draw: fieldPanel })],
-  };
-  return withHome('wangcai-plugin-workspace-hidden-sidebar', lists, async ({ open }) => {
-    const { page } = await open();
-    const errors = watch(page);
-    await inFront(page, 'w1');
-    await openView(page, '视图');
-    await page.getByRole('button', { name: '切换右侧栏' }).click();
-    await page.locator('.sidebar-right').waitFor({ state: 'hidden' });
-    await press(page, 'Control+Space', 'a');
-    // Nothing in the sidebar is drawn, so the page in the main pane takes the keys.
-    await keysIn(page, 'workspace');
-    assert.deepEqual(errors, []);
-  });
-});
-
-test('a tab of a workspace that is not in front does not take the keys', { timeout: 180000 }, () => {
-  const lists = {
-    workspaces: [provider()],
-    tabs: [viewPlugin('view', '视图', { draw: fieldPanel, workspaceId: 'elsewhere' })],
-  };
-  return withHome('wangcai-plugin-workspace-elsewhere-tab', lists, async ({ open }) => {
-    const { page } = await open();
-    const errors = watch(page);
-    await inFront(page, 'w1');
-    await openView(page, '视图');
-    await page.locator('.sidebar-panel[data-plugin=view]').waitFor({ state: 'hidden' });
-    // The tab follows another workspace, so it is not drawn: the page in the main pane takes the keys.
-    await press(page, 'Control+Space', 'a');
+    // Nothing switches, and the key named the provider, so the page it draws takes the keys.
     await keysIn(page, 'workspace');
     assert.deepEqual(errors, []);
   });

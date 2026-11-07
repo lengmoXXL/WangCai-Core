@@ -86,7 +86,7 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
     const tab = right.hidden ? undefined : tabs.get(current);
     return tab && inFront(tab) ? tab : undefined;
   };
-  const takeKeys = () => handKeysTo(frontTab()?.panel ?? mainPage());
+  const takeKeys = (page?: HTMLElement) => handKeysTo(page ?? frontTab()?.panel ?? mainPage());
   const select = (key: string) => {
     const tab = tabs.get(key);
     current = tab ? key : '';

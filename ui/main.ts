@@ -45,7 +45,7 @@ async function start() {
   disposers.push(bindWindowKeys(await call<KeymapPayload>('keymap')));
   // The tab strip is built before `workspaceColumn`, which is what knows the page the keys fall back to, so it asks for
   // that page only when it hands the keys over, once `workspaceColumn` is there.
-  const tabStrip = await sidebarTabs(root, () => workspaceColumn.page());
+  const tabStrip = await sidebarTabs(root, () => workspaceColumn.pageInFront());
   // The topic Core's own `<leader>w` publishes; a plugin's binding may publish it too.
   window.wangcai.subscribe('core:close-tab', () => tabStrip.closeSelected());
   const providers = plugins.filter((plugin) => plugin.workspaces && !plugin.error).map((plugin) => plugin.id);
