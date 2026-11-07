@@ -9,7 +9,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@lengmoxxl/sdk": "^0.1.13"
+    "@lengmoxxl/sdk": "^0.1.50"
   },
   "devDependencies": {
     "@lengmoxxl/wangcai-testkit": "^0.1.7",
