@@ -244,9 +244,12 @@ export async function workspaceSidebar(options: {
   document.addEventListener('keydown', escapeOverlays);
   disposers.push(() => document.removeEventListener('keydown', escapeOverlays));
 
+  /** A plugin whose views are sidebar tabs has no page in the main pane: Core keeps it hidden. */
+  const pageOf = (provider: string) => document.querySelector<HTMLElement>(`.desktop-main > [data-plugin="${provider}"]:not([hidden])`) ?? undefined;
+
   // A workspace that is chosen is a switch to it, so the keys follow: `settle` only puts the tabs back in order, which it
-  // also does when the rows change.
-  const selectWorkspace = (id: string, page?: HTMLElement) => {
+  // also does when the rows change. The keys go to the page the provider draws, ahead of the tab in front of the sidebar.
+  const selectWorkspace = (id: string) => {
     const provider = providerOf(id);
     if (!provider) return;
     active = id;
@@ -255,7 +258,7 @@ export async function workspaceSidebar(options: {
     tabs.rebind(id);
     showRows();
     tabs.settle(active);
-    tabs.takeKeys(page);
+    tabs.takeKeys(pageOf(provider));
     void call('request', provider, 'workspace-select', { id }).catch(console.error);
   };
 
@@ -631,8 +634,7 @@ export async function workspaceSidebar(options: {
     if (element) paintGit(element, git);
   }));
   void refreshRows();
-  /** A plugin whose views are sidebar tabs has no page in the main pane: Core keeps it hidden. */
-  const pageOf = (provider: string) => document.querySelector<HTMLElement>(`.desktop-main > [data-plugin="${provider}"]:not([hidden])`) ?? undefined;
+
   const pageInFront = () => {
     const provider = active === undefined ? undefined : providerOf(active);
     return provider ? pageOf(provider) : undefined;
@@ -640,14 +642,13 @@ export async function workspaceSidebar(options: {
   /** Brings the workspace this provider serves in front, with the keys in the page it draws there when it draws one; false
    * when it serves none. */
   const reveal = (provider: string) => {
-    const page = pageOf(provider);
     if (active !== undefined && providerOf(active) === provider) {
-      tabs.takeKeys(page);
+      tabs.takeKeys(pageOf(provider));
       return true;
     }
     const row = rowsByProvider.get(provider)?.[0];
     if (!row) return false;
-    selectWorkspace(row.id, page);
+    selectWorkspace(row.id);
     return true;
   };
 

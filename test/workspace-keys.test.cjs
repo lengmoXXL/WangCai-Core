@@ -8,6 +8,9 @@ const keysInList = (page) => until(async () => page.evaluate(() => document.acti
 
 // Waits until the cursor — the focus in the list — stands on this workspace.
 const cursorOn = (page, id) => until(async () => page.evaluate((want) => document.activeElement?.dataset?.workspace === want, id));
+// What the cursor is drawn with. The ring says where the keys are, whether or not the browser counts the press as a
+// keyboard one.
+const cursorOutline = (page) => page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle);
 
 test('Ctrl+h puts the keys in the workspace list and Ctrl+l hands them back', { timeout: 180000 }, () => withWindow('wangcai-focus-run', {
   workspaces: [mockWorkspace({ rows: [mockWorkspaceRow('w1'), mockWorkspaceRow('w2')] })],
@@ -19,6 +22,7 @@ test('Ctrl+h puts the keys in the workspace list and Ctrl+l hands them back', { 
   // The list takes the keys from a terminal, and the terminal takes them back.
   await press(page, 'Control+h');
   await keysInList(page);
+  assert.equal(await cursorOutline(page), 'solid', 'the row the keys land on is drawn as the cursor');
   await inFront(page, 'w1');
   await press(page, 'Control+l');
   await keysIn(page, 'terminal');
@@ -84,6 +88,24 @@ test('h folds the group under the cursor, and l on its bar opens it', { timeout:
   await cursorOn(page, 'w1');
   await inFront(page, 'w1');
   await page.keyboard.press('l');
+  await keysIn(page, 'workspace');
+  assert.deepEqual(errors, []);
+}));
+
+test('l takes the keys to the workspace page, not to the tab in front of the sidebar', { timeout: 180000 }, () => withWindow('wangcai-workspace-enter', {
+  workspaces: [mockWorkspace({ rows: [mockWorkspaceRow('w1'), mockWorkspaceRow('w2')], ui: workspacePage })],
+  tabs: [viewPlugin('terminal', '终端', { draw: fieldPanel })],
+}, async ({ page, errors }) => {
+  await inFront(page, 'w1');
+  await openView(page, '终端');
+  await keysIn(page, 'terminal');
+  // From the tab in front, Ctrl+h reaches the list, and l enters the workspace under the cursor.
+  await press(page, 'Control+h');
+  await keysInList(page);
+  await press(page, 'j');
+  await cursorOn(page, 'w2');
+  await press(page, 'l');
+  await inFront(page, 'w2');
   await keysIn(page, 'workspace');
   assert.deepEqual(errors, []);
 }));
