@@ -15,7 +15,7 @@ export interface KeyContext {
 }
 
 /** Where a binding fires: `local` fires only while the focus sits inside a plugin's page, `global` fires wherever the
- * focus is. A binding that also fires while a field has the keys says `insert: true`. */
+ * focus is. */
 type KeyScope = 'local' | 'global';
 
 /** One bound sequence as the window gets it: the id it is run by, the keys in Neovim notation, what to draw for it,
@@ -29,7 +29,7 @@ export interface KeyBinding {
 
 /** What the window matches against: the leader, how long a prefix waits, and every bound sequence, with the layers in
  * the order they were written. */
-export interface KeymapPayload { leader: string; timeout: number; bindings: KeyBinding[] }
+export interface KeymapPayload { leader: string; timeout?: number; bindings: KeyBinding[] }
 
 /** The keymap: what the window is given, how a binding is run by id, and where a plugin's keys join and leave. */
 export interface Keymap {
@@ -42,13 +42,9 @@ export interface Keymap {
 }
 
 type Action = { event: string; data?: unknown } | { run(context: KeyContext): unknown; args?: unknown };
-/** The parts one binding's fields give: what to draw, whether it also fires in a field, and the action. */
+/** The parts one binding's fields give, whose `desc` is the line a hint draws for it. */
 type Written = { desc?: string; insert: boolean; action: Action };
 type Entry = { binding: KeyBinding; action: Action };
-
-const LEADER = '<C-Space>';
-/** How long a partly typed sequence waits for its next key. */
-const TIMEOUT = 800;
 
 // A value written for a binding that is meant to be an object: anything else is read as no fields at all.
 const fieldsOf = (value: unknown) => typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -128,10 +124,12 @@ export function keymapOf(input: KeymapInput | undefined, calls: Omit<KeyContext,
       console.error(`Keymap ${entry.binding.keys}:`, error);
     }
   };
+  const LEADER = '<C-Space>';
   return {
     payload: () => ({
       leader: typeof leader === 'string' && leader ? leader : LEADER,
-      timeout: typeof timeout === 'number' && timeout > 0 ? timeout : TIMEOUT,
+      // Undefined when init.ts sets none, since the engine's own default is the only place the wait is decided.
+      timeout: typeof timeout === 'number' && timeout > 0 ? timeout : undefined,
       bindings: layers().map((entry) => entry.binding),
     }),
     async run(id) {

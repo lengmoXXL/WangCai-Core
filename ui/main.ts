@@ -3,7 +3,7 @@ import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
 import { fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import { call } from './bridge';
 import { installsPage } from './installs';
-import { bindKeys, handKeysTo, visiblePageOf } from './keymap';
+import { bindWindowKeys, handKeysTo, visiblePageOf } from './keymap';
 import { sidebarDividers } from './layout';
 import { sidebarTabs } from './tabs';
 import { workspaceSidebar } from './workspace-sidebar';
@@ -42,7 +42,7 @@ async function start() {
   if (!plugins.length) main.textContent = '未安装插件';
   // Every bound sequence — Core's, the plugins' and init.ts's — is read once the plugins have activated, since they add
   // theirs.
-  disposers.push(bindKeys(await call<KeymapPayload>('keymap')));
+  disposers.push(bindWindowKeys(await call<KeymapPayload>('keymap')));
   // The tab strip is built before `workspaceColumn`, which is what knows the page the keys fall back to, so it asks for
   // that page only when it hands the keys over, once `workspaceColumn` is there.
   const tabStrip = await sidebarTabs(root, () => workspaceColumn.page());

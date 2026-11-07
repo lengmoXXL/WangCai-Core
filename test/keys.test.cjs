@@ -139,6 +139,7 @@ test('a prefix waits out the timeout, and the hint lists what may follow', { tim
     await said(doubleText);
     await press(page, ...pressedFor(singleSequence));
     await said(singleSequence);
+    await until(() => hint(page).isHidden());
     assert.deepEqual(errors, []);
   });
 });
