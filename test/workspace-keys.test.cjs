@@ -56,6 +56,23 @@ test('the two keys walk the panes: the list, the page in front, and the sidebar 
   assert.deepEqual(errors, []);
 }));
 
+test('gg goes to the first line and G to the last', { timeout: 180000 }, () => withWindow('wangcai-workspace-jump', {
+  workspaces: [mockWorkspace({ rows: [mockWorkspaceRow('w1'), mockWorkspaceRow('w2'), mockWorkspaceRow('w3')], ui: workspacePage })],
+  tabs: [],
+}, async ({ page, errors }) => {
+  await inFront(page, 'w1');
+  await press(page, 'Control+h');
+  await keysInList(page);
+  await cursorOn(page, 'w1');
+  await press(page, 'Shift+g');
+  await cursorOn(page, 'w3');
+  await press(page, 'g', 'g');
+  await cursorOn(page, 'w1');
+  // The workspace in front never moved: the two keys are the cursor's own.
+  await inFront(page, 'w1');
+  assert.deepEqual(errors, []);
+}));
+
 test('j and k move the cursor, and only l switches to the workspace', { timeout: 180000 }, () => withWindow('wangcai-workspace-keys', {
   workspaces: [mockWorkspace({ rows: [mockWorkspaceRow('w1'), mockWorkspaceRow('w2')], ui: workspacePage })],
   tabs: [],

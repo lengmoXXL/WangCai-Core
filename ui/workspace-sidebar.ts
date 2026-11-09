@@ -472,7 +472,8 @@ export async function workspaceSidebar(options: {
   };
 
   // The keys walk the list where the eye is: j and k move the cursor a line at a time and leave the workspace in front
-  // alone, l switches to the line under the cursor — which is where the keys go — and h folds the group it sits in.
+  // alone, l switches to the line under the cursor — which is where the keys go —, h folds the group it sits in, and
+  // gg and G are the two ends of the list.
   const LINES = '.workspace, .workspace-group-bar';
   const visibleLines = () =>
     [...workspaceList.querySelectorAll<HTMLElement>(LINES)].filter((line) => line.offsetParent !== null);
@@ -498,18 +499,34 @@ export async function workspaceSidebar(options: {
     const at = cursor ? lines.indexOf(cursor) : -1;
     lines[at < 0 ? 0 : Math.min(lines.length - 1, Math.max(0, at + step))].focus();
   };
+  const jumpCursor = (to: 'first' | 'last') => {
+    const lines = visibleLines();
+    (to === 'first' ? lines[0] : lines[lines.length - 1])?.focus();
+  };
   // A row is entered as a switch; a group's bar only opens the rows under it.
   const openFocused = () => {
     const id = cursorLine()?.dataset.workspace;
     if (id !== undefined) selectWorkspace(id);
     else foldFocusedGroup(true);
   };
+  // A g waits for the press after it: a second g is gg, anything else cancels it.
+  let afterG = false;
   const onListKeys = (event: KeyboardEvent) => {
-    if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
-    if (event.key === 'j' || event.key === 'k') stepCursor(event.key === 'j' ? 1 : -1);
-    else if (event.key === 'h') foldFocusedGroup(false);
-    else if (event.key === 'l') openFocused();
-    else return;
+    const second = afterG;
+    afterG = false;
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
+    // A shifted press belongs to the window, but for G: a driven keyboard sends it as a shifted g rather than as a
+    // capital, so both are read as G here.
+    const key = event.shiftKey ? event.key.toUpperCase() : event.key;
+    if (event.shiftKey && key !== 'G') return;
+    if (key === 'j' || key === 'k') stepCursor(key === 'j' ? 1 : -1);
+    else if (key === 'h') foldFocusedGroup(false);
+    else if (key === 'l') openFocused();
+    else if (key === 'G') jumpCursor('last');
+    else if (key === 'g') {
+      if (second) jumpCursor('first');
+      else afterG = true;
+    } else return;
     event.preventDefault();
   };
   // Focusable without a tab stop, so a list with no row to stand on still takes the keys.
