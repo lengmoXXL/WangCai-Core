@@ -45,7 +45,7 @@ export async function activate(host: CoreHost): Promise<Core> {
     if (!existsSync(current) && existsSync(legacy)) renameSync(legacy, current);
   }
   syncSources(host.sources, storage, host.version);
-  const agents = agentInstaller(storage, network);
+  const agents = agentInstaller(storage, network, (state) => host.send('core:agent', state));
   // Loaded on the first ask, and again after a plugin was built anew: the window and the protocols all wait
   // for whatever set is current. It takes the keymap made below, whose own calls reach back through this one,
   // so either has to be usable before the other exists.
@@ -97,6 +97,10 @@ export async function activate(host: CoreHost): Promise<Core> {
     key: keymap.run,
     statuses: host.statuses,
     fullscreen: host.fullscreen,
+    'agent-retry': async () => {
+      await agents.local();
+      host.reload();
+    },
     install: async (ids: string[]) => {
       if (!(await host.install(ids))) return;
       const previous = loading;

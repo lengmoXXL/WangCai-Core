@@ -27,6 +27,12 @@ const LOCAL_TARGETS: Record<string, string> = {
   'linux-x64': 'x86_64-unknown-linux-musl',
 };
 
+/** What a download of the agent says of itself, for the window to show while it waits for a terminal. */
+export interface AgentDownload {
+  stage: 'downloading' | 'ready' | 'failed';
+  message?: string;
+}
+
 /** The agent this Core drives: the one its own machine runs, and what installs it on the machines it reaches. */
 export interface Agents {
   /** Where this machine's agent is: downloaded under the data directory when it is not there yet. */
@@ -39,26 +45,37 @@ export interface Agents {
  * The agent release this Core drives, on the machine it runs on and on the ones it reaches over ssh. A build
  * from a development checkout is used as it stands, so a run of the shell does not fetch what it just built.
  */
-export function agentInstaller(storage: string, network: Network): Agents {
+export function agentInstaller(storage: string, network: Network, download: (state: AgentDownload) => void): Agents {
   const path = join(storage, 'bin/wangcai');
-  let installed: string | undefined;
+  // One download however many plugins ask at once, and a failure drops it so the retry is a new one.
+  let installed: Promise<string> | undefined;
   async function installLocal() {
     const source = process.env.WANGCAI_AGENT_SOURCE;
     if (source) return source;
     if (await reports(path)) return path;
-    const target = LOCAL_TARGETS[`${process.platform}-${process.arch}`];
-    if (!target) throw new Error(`${process.platform} ${process.arch} 上暂不支持安装 agent`);
-    const binary = await fetchRelease(target, network);
-    mkdirSync(dirname(path), { recursive: true });
-    const written = `${path}.tmp`;
-    writeFileSync(written, binary);
-    chmodSync(written, 0o755);
-    renameSync(written, path);
+    download({ stage: 'downloading' });
+    try {
+      const target = LOCAL_TARGETS[`${process.platform}-${process.arch}`];
+      if (!target) throw new Error(`${process.platform} ${process.arch} 上暂不支持安装 agent`);
+      const binary = await fetchRelease(target, network);
+      mkdirSync(dirname(path), { recursive: true });
+      const written = `${path}.tmp`;
+      writeFileSync(written, binary);
+      chmodSync(written, 0o755);
+      renameSync(written, path);
+    } catch (error) {
+      download({ stage: 'failed', message: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+    download({ stage: 'ready' });
     return path;
   }
 
   return {
-    local: async () => installed ??= await installLocal(),
+    local: () => installed ??= installLocal().catch((error) => {
+      installed = undefined;
+      throw error;
+    }),
     async ssh(host, signal) {
       const remote = (command: string) => ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', host, agentCommand(command)];
       // A machine that refuses the probe keeps whatever it has: its own start command reports the real failure.
@@ -91,7 +108,7 @@ async function fetchRelease(target: string, network: Network, signal?: AbortSign
   for (let attempt = 1; ; attempt++) {
     try {
       const expected = await publishedDigest(`${url}.sha256`, network, signal);
-      const binary = await download(url, network, signal);
+      const binary = await fetchAsset(url, network, signal);
       const digest = createHash('sha256').update(binary).digest('hex');
       if (digest !== expected) throw new Error(`sha256 不符：期望 ${expected}，得到 ${digest}`);
       return binary;
@@ -117,7 +134,7 @@ function curl(url: string, network: Network, output: string, signal?: AbortSigna
 }
 
 // The asset lands in a file first, since curl's output comes back as text.
-async function download(url: string, network: Network, signal?: AbortSignal) {
+async function fetchAsset(url: string, network: Network, signal?: AbortSignal) {
   const directory = mkdtempSync(join(tmpdir(), 'wangcai-agent-'));
   try {
     const file = join(directory, 'asset');

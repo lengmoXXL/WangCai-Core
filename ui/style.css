@@ -7,7 +7,15 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .desktop-main, .sidebar-left, .sidebar-right { border: 1px solid var(--wc-border); border-radius: 8px; overflow: hidden; }
 /* The list and the main pane merge at their contact face; only the outer three sides are outlined. */
 .sidebar-left { border-radius: 8px 0 0 8px; border-right: 0; }
-.desktop-main { display: flex; flex: 1; min-width: 240px; border-radius: 0 8px 8px 0; border-left: 0; }
+.desktop-main { display: flex; position: relative; flex: 1; min-width: 240px; border-radius: 0 8px 8px 0; border-left: 0; }
+/* The report covers the corner of the page rather than taking a row above it: the page is the plugin's, and a
+   download should not change the height it was drawn at. */
+.agent-download { position: absolute; top: 8px; right: 12px; z-index: 2; display: flex; align-items: center; gap: 8px; max-width: 70%; padding: 3px 8px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-overlay); color: var(--wc-muted); font-size: 11px; white-space: nowrap; }
+.agent-download[hidden] { display: none; }
+.agent-download[data-stage=failed] { color: var(--wc-red); }
+.agent-download .reason { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--wc-muted); }
+.agent-download button { flex: 0 0 auto; padding: 1px 8px; border: 1px solid var(--wc-border); border-radius: 4px; background: var(--wc-surface); color: var(--wc-foreground); font: inherit; cursor: pointer; }
+.agent-download button[disabled] { color: var(--wc-muted); cursor: default; }
 .plugin { flex: 1; min-width: 0; height: 100%; }
 /* A page focused by a click draws no ring: the focus is there for its keys, not a place the user navigated to. */
 .plugin:focus, .sidebar-panel:focus { outline: none; }
