@@ -32,6 +32,30 @@ test('Ctrl+h puts the keys in the workspace list and Ctrl+l hands them back', { 
   assert.deepEqual(errors, []);
 }));
 
+test('the two keys walk the panes: the list, the page in front, and the sidebar tab', { timeout: 180000 }, () => withWindow('wangcai-focus-walk', {
+  workspaces: [mockWorkspace({ rows: [mockWorkspaceRow('w1')], ui: workspacePage })],
+  tabs: [viewPlugin('terminal', '终端', { draw: fieldPanel })],
+}, async ({ page, errors }) => {
+  await inFront(page, 'w1');
+  await openView(page, '终端');
+  await keysIn(page, 'terminal');
+  // Leftwards out of the sidebar: the page of the workspace in front, then the list, whose end holds the keys.
+  await press(page, 'Control+h');
+  await keysIn(page, 'workspace');
+  await press(page, 'Control+h');
+  await keysInList(page);
+  await press(page, 'Control+h');
+  await keysInList(page);
+  // Rightwards again a pane at a time, and the tab in front is as far as they go.
+  await press(page, 'Control+l');
+  await keysIn(page, 'workspace');
+  await press(page, 'Control+l');
+  await keysIn(page, 'terminal');
+  await press(page, 'Control+l');
+  await keysIn(page, 'terminal');
+  assert.deepEqual(errors, []);
+}));
+
 test('j and k move the cursor, and only l switches to the workspace', { timeout: 180000 }, () => withWindow('wangcai-workspace-keys', {
   workspaces: [mockWorkspace({ rows: [mockWorkspaceRow('w1'), mockWorkspaceRow('w2')], ui: workspacePage })],
   tabs: [],
@@ -99,7 +123,10 @@ test('l takes the keys to the workspace page, not to the tab in front of the sid
   await inFront(page, 'w1');
   await openView(page, '终端');
   await keysIn(page, 'terminal');
-  // From the tab in front, Ctrl+h reaches the list, and l enters the workspace under the cursor.
+  // From the tab in front, Ctrl+h steps to the page the workspace draws, and once more to the list; l enters the
+  // workspace under the cursor.
+  await press(page, 'Control+h');
+  await keysIn(page, 'workspace');
   await press(page, 'Control+h');
   await keysInList(page);
   await press(page, 'j');

@@ -13,9 +13,10 @@
 一个绑定能做三件事：发事件（`{ event, data }`：订阅它的插件、窗口里订阅它的视图都会收到）、调 `commands` 里的函数
 （`{ command, args }`，`commands` 是 `init.ts` 顶层的一张表，名字对应函数），或跑脚本（`{ run }`）。
 
-发 `core:close-tab` 这个事件就关掉当前标签页；发 `core:focus-workspaces` 把焦点交给工作区侧栏，发 `core:focus-pane`
-交给它右边的页面——侧栏当前的标签页，没有就是主页面；发 `core:show-view` 带 `data: { plugin }` 则把那个插件的视图
+发 `core:close-tab` 这个事件就关掉当前标签页；发 `core:show-view` 带 `data: { plugin }` 则把那个插件的视图
 切到前台，没开就打开（工作区插件是切到它的工作区），并把焦点交给它。
+窗口是「工作区侧栏、工作区页面、右侧边栏当前标签页」三格一排：发 `core:focus-left` 把焦点交给左边一格，
+发 `core:focus-right` 交给右边一格，没有地方放焦点的那一格跳过，走到头就不再动。
 `init.ts` 的绑定和插件的 `keys` 都把 `event` 写成这几个名字之一即可。
 
 `{ command }` 与 `{ run }` 这两种拿到 `{ args, profile, publish, request, send, open }`：`args` 是绑定里写的参数，`profile` 是主题配置，
@@ -40,11 +41,12 @@ Core 自带的键位：
 | 键 | 作用 | 范围 |
 | --- | --- | --- |
 | `<leader>w` | 关闭当前标签页 | `global`、`insert` |
-| `<C-h>` | 焦点到工作区侧栏 | `global`、`insert` |
-| `<C-l>` | 焦点到右侧页面（通常是终端） | `global`、`insert` |
+| `<C-h>` | 焦点左移一格 | `global`、`insert` |
+| `<C-l>` | 焦点右移一格 | `global`、`insert` |
 
-`<C-h>` 与 `<C-l>` 在输入框和终端里也生效，所以焦点在终端里也能按：Ctrl+h 回到工作区侧栏，Ctrl+l 回到终端。它们会
-占掉终端原本的 Ctrl+H（退格）和 Ctrl+L（清屏），不想要就在 `init.ts` 里用同一个序列绑成别的动作。
+`<C-h>` 与 `<C-l>` 在输入框和终端里也生效，所以焦点在终端里也能按：Ctrl+h 到工作区侧栏，Ctrl+l 回到终端，
+再按一次到右侧边栏的标签页，从那里 Ctrl+h 又回到终端。它们会占掉终端原本的 Ctrl+H（退格）和 Ctrl+L（清屏），
+不想要就在 `init.ts` 里用同一个序列绑成别的动作。
 
 插件自带的键位：
 

@@ -58,10 +58,24 @@ async function start() {
   });
   root.append(workspaceColumn.element, main, tabStrip.element);
   sidebarDividers(root, workspaceColumn.element, tabStrip.element, disposers);
-  // The two keys move the focus across the pane in the middle: to the list of workspaces on its left, and to the page
-  // on its right — the tab in front of the sidebar, or the page the workspace draws.
-  window.wangcai.subscribe('core:focus-workspaces', () => workspaceColumn.takeKeys());
-  window.wangcai.subscribe('core:focus-pane', () => tabStrip.takeKeys());
+  // The window is three panes in a row: the list of workspaces, the page of the workspace in front, and the right
+  // sidebar's tab in front. Each of the two keys hands the keys to the neighbour in its direction, stepping over a pane
+  // with nowhere to put them, and the ends of the row hold them.
+  const panes = [
+    { element: workspaceColumn.element, takes: () => true, take: workspaceColumn.takeKeys },
+    { element: main, takes: () => workspaceColumn.pageInFront() !== undefined, take: () => handKeysTo(workspaceColumn.pageInFront()) },
+    { element: tabStrip.element, takes: tabStrip.takesKeys, take: tabStrip.takeKeys },
+  ];
+  const moveKeys = (step: -1 | 1) => {
+    const at = panes.findIndex((pane) => pane.element.contains(document.activeElement));
+    for (let index = (at < 0 ? 1 : at) + step; index >= 0 && index < panes.length; index += step) {
+      if (!panes[index].takes()) continue;
+      panes[index].take();
+      return;
+    }
+  };
+  window.wangcai.subscribe('core:focus-left', () => moveKeys(-1));
+  window.wangcai.subscribe('core:focus-right', () => moveKeys(1));
 
   const opens = new Map<string, (record?: TabRecord) => Promise<void>>();
   for (const plugin of plugins) {

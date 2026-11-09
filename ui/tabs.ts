@@ -87,6 +87,8 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
     return tab && inFront(tab) ? tab : undefined;
   };
   const takeKeys = (page?: HTMLElement) => handKeysTo(page ?? frontTab()?.panel ?? mainPage());
+  // Whether the sidebar has a tab in front to hand the keys to: without one it is not a pane that can take them.
+  const takesKeys = () => frontTab() !== undefined;
   const select = (key: string) => {
     const tab = tabs.get(key);
     current = tab ? key : '';
@@ -242,6 +244,7 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
     },
     settle,
     takeKeys,
+    takesKeys,
     open,
     addView(title: string, open: () => void) {
       const item = document.createElement('button');
