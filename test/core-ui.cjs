@@ -172,6 +172,18 @@ const watch = (page, errors = []) => {
   return errors;
 };
 
+// The app reads a quick press as a click, so Playwright's own drag — which presses and moves at once — never starts one.
+const drag = async (page, source, target, options = {}) => {
+  const from = await source.boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await until(() => source.evaluate((element) => element.draggable));
+  const box = await target.boundingBox();
+  const at = options.targetPosition ?? { x: box.width / 2, y: box.height / 2 };
+  await page.mouse.move(box.x + at.x, box.y + at.y, { steps: 4 });
+  await page.mouse.up();
+};
+
 // The names on the group bars, in the order they are drawn.
 const groupNames = (page) => page.locator('.workspace-group-bar').allTextContents();
 
@@ -223,5 +235,5 @@ const rowId = (locator) => locator.first().evaluate((element) => element.dataset
 
 module.exports = {
   plugin, viewPlugin, fieldPanel, workspacePage, mockWorkspaceRow, mockWorkspace, workspaceLists, workspaces, makeGroup, drawnOrder, press, keysIn, inFront, tabNames, untilReading, untilTabs, watch, openView, viewTabs, closeView,
-  groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId,
+  groupNames, withGroupRecords, storedGroupNames, firstInsideLine, lineAt, lineBeforeGroup, lineBeside, onLine, rowIds, rowId, drag,
 };

@@ -192,7 +192,6 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
     button.onclick = () => select(tab.key);
     close.onclick = () => closeTab(tab.key);
     element.append(button, close);
-    element.draggable = true;
     dragSource(element, () => { dragging = tab.key; }, () => { dragging = undefined; }, header);
     element.ondragover = (event) => {
       if (dragging === undefined || dragging === tab.key) return;

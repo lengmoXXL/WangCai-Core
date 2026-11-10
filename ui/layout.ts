@@ -82,9 +82,27 @@ export const clearDrop = (container: HTMLElement) => {
   for (const node of container.querySelectorAll<HTMLElement>('[data-drop]')) delete node.dataset.drop;
 };
 
+// How long a press is held before it can drag: the browser starts a drag on the first pixel a press moves, and macOS
+// answers a press that was only a shaky click with its copy cursor — a green plus flashing over a tab nobody meant to
+// drag. A press that has not been held this long stays a click, and a click does not move anything.
+const DRAG_HOLD = 200;
+
 // An element that starts a drag hands over what is being dragged, and clears the markers off its container when the
 // drag ends.
 export const dragSource = (element: HTMLElement, start: () => void, end: () => void, container: HTMLElement) => {
+  let armTimer = 0;
+  const disarm = () => {
+    window.clearTimeout(armTimer);
+    armTimer = 0;
+    element.draggable = false;
+  };
+  const arm = () => {
+    disarm();
+    armTimer = window.setTimeout(() => { element.draggable = true; }, DRAG_HOLD);
+  };
+  element.onpointerdown = (event) => { if (event.button === 0) arm(); };
+  element.onpointerup = disarm;
+  element.onpointercancel = disarm;
   element.ondragstart = (event) => {
     start();
     event.dataTransfer!.effectAllowed = 'move';
@@ -92,5 +110,6 @@ export const dragSource = (element: HTMLElement, start: () => void, end: () => v
   element.ondragend = () => {
     end();
     clearDrop(container);
+    disarm();
   };
 };

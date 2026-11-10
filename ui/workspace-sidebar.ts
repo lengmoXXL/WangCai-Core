@@ -541,7 +541,6 @@ export async function workspaceSidebar(options: {
     element.setAttribute('aria-selected', String(row.id === active));
     element.dataset.workspace = row.id;
     element.tabIndex = 0;
-    element.draggable = true;
     const state = document.createElement('span');
     state.className = 'state';
     state.setAttribute('aria-hidden', 'true');
@@ -578,7 +577,6 @@ export async function workspaceSidebar(options: {
     bar.setAttribute('aria-label', `分组 ${group.name}`);
     bar.setAttribute('aria-expanded', String(!group.collapsed));
     bar.tabIndex = 0;
-    bar.draggable = true;
     bar.innerHTML = '<svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 5.9 8 10.8l4.9-4.9Z"/></svg>';
     const name = document.createElement('span');
     name.className = 'name';
