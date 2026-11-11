@@ -76,14 +76,11 @@ const hint = (page) => page.locator('.which-key');
 // The sequences the cases below press, which are what init.ts binds them under.
 const windowSequence = '<leader>pe';
 const localSequence = '<leader>lo';
-const fieldSequence = '<leader>pi';
 
-// The texts those bindings publish, and the binding texts two cases share.
+// The texts those bindings publish, and the binding text two cases share.
 const windowText = '窗口';
 const localText = '局部';
 const localKey = `'${localSequence}': { event: '${probeEvent}', data: '${localText}' }`;
-const fieldText = '输入框';
-const fieldKey = `'${fieldSequence}': { event: '${probeEvent}', data: '${fieldText}', insert: true }`;
 
 // The command one binding of the case below runs, and the name init.ts defines it under.
 const commandName = 'probe.report';
@@ -156,15 +153,10 @@ const focusField = async (page) => {
   }, fieldId);
 };
 
-test('a field keeps its own keys, unless the binding asks for them', { timeout: 180000 }, () => withProbe('wangcai-keys-field', { keys: `{ '${windowSequence}': { event: '${probeEvent}', data: '${windowText}' }, ${fieldKey} }` }, async ({ page, echo, said, errors }) => {
+test('a binding answers in a field as it does outside one', { timeout: 180000 }, () => withProbe('wangcai-keys-field', { keys: `{ '${windowSequence}': { event: '${probeEvent}', data: '${windowText}' } }` }, async ({ page, said, errors }) => {
   await focusField(page);
   await press(page, ...pressedFor(windowSequence));
-  // The sequence broke, so its last key belongs to the field; wait past the timeout to see the window binding stay quiet.
-  await new Promise((resolve) => setTimeout(resolve, TIMEOUT + 300));
-  assert.equal(await echo.textContent(), '');
-  assert.equal(await page.locator(`#${fieldId}`).inputValue(), pressedFor(windowSequence).at(-1));
-  await press(page, ...pressedFor(fieldSequence));
-  await said(fieldText);
+  await said(windowText);
   assert.deepEqual(errors, []);
 }));
 
@@ -194,7 +186,7 @@ test('a local binding answers only inside a page, a global one wherever the focu
 
 const leaveKeys = 'Control+Shift+Q';
 
-test(`a ${leaveKeys} leaves the field, Escapes stay in it, and a prefix waiting there does not keep the press`, { timeout: 180000 }, () => withProbe('wangcai-keys-escape', { keys: `{ ${localKey}, ${fieldKey} }` }, async ({ page, said, errors }) => {
+test(`a ${leaveKeys} leaves the field, Escapes stay in it, and a prefix waiting there does not keep the press`, { timeout: 180000 }, () => withProbe('wangcai-keys-escape', { keys: `{ ${localKey} }` }, async ({ page, said, errors }) => {
   await focusField(page);
   const focused = () => page.evaluate(() => ({
     id: document.activeElement?.id ?? '',
@@ -204,7 +196,7 @@ test(`a ${leaveKeys} leaves the field, Escapes stay in it, and a prefix waiting 
   await press(page, 'Escape', 'Escape');
   assert.equal((await focused()).id, fieldId);
   // A prefix a field can answer, waiting there for its next key, does not keep this press for itself.
-  await press(page, ...pressedFor(fieldSequence).slice(0, 2));
+  await press(page, ...pressedFor(localSequence).slice(0, 2));
   await until(() => hint(page).isVisible());
   await press(page, leaveKeys);
   assert.equal((await focused()).plugin, probe.id);

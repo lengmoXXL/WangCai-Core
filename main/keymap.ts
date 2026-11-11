@@ -34,14 +34,13 @@ export interface CommandResult { code: number; stdout: string; stderr: string }
  * focus is. */
 type KeyScope = 'local' | 'global';
 
-/** One bound sequence as the window gets it: the id it is run by, the keys in Neovim notation, what to draw for it,
- * whether it also fires while a field has the keys, and where it is allowed to fire. */
-export interface KeyBinding {
-  id: string; keys: string; desc?: string; insert: boolean; scope: KeyScope;
-  /** For a local binding, the page it belongs to; with no plugin named it answers in any page, which is what init.ts
-   * writes. A global binding names no page. */
+/** One bound sequence as the window gets it: the id it is run by, the keys in Neovim notation, what to draw for it, and
+ * where it is allowed to fire. */
+export type KeyBinding = { id: string; keys: string; desc?: string } & ({ scope: 'global' } | {
+  scope: 'local';
+  /** The page it belongs to; with no plugin named it answers in any page, which is what init.ts writes. */
   plugin?: string;
-}
+});
 
 /** What the window matches against: the leader, how long a prefix waits, and every bound sequence, with the layers in
  * the order they were written. */
@@ -59,7 +58,7 @@ export interface Keymap {
 
 type Action = { event: string; data?: unknown } | { run(context: KeyContext): unknown; args?: unknown };
 /** The parts one binding's fields give, whose `desc` is the line a hint draws for it. */
-type Written = { desc?: string; insert: boolean; action: Action };
+type Written = { desc?: string; action: Action };
 type Entry = { binding: KeyBinding; action: Action };
 
 // A value written for a binding that is meant to be an object: anything else is read as no fields at all.
@@ -84,7 +83,7 @@ function entryOf(fields: Record<string, unknown>, commands: Record<string, unkno
     : typeof fields.event === 'string' ? { event: fields.event, data: fields.data }
       : undefined;
   if (!action) return undefined;
-  return { desc: typeof fields.desc === 'string' ? fields.desc : undefined, insert: fields.insert === true, action };
+  return { desc: typeof fields.desc === 'string' ? fields.desc : undefined, action };
 }
 
 /**
@@ -102,8 +101,9 @@ function layerOf(entries: unknown, commands: Record<string, unknown> | undefined
     if (written) {
       const scope = fields.global === true ? 'global' : options.scope;
       const id = `${options.owner ?? 'init.ts'}/${sequence}`;
+      const binding = { id, keys: sequence, desc: written.desc };
       layer.push({
-        binding: { id, keys: sequence, desc: written.desc, insert: written.insert, scope, plugin: scope === 'local' ? options.owner : undefined },
+        binding: scope === 'local' ? { ...binding, scope, plugin: options.owner } : { ...binding, scope },
         action: written.action,
       });
       continue;

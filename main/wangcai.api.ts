@@ -30,8 +30,6 @@ export type Binding = {
   desc?: string;
   /** Answers wherever the focus is, not only inside a plugin's page. */
   global?: boolean;
-  /** Also answers while a field or a terminal holds the keys. */
-  insert?: boolean;
 } & ({ event: string; data?: unknown } | { command: string; args?: unknown } | { run(context: KeyContext): unknown; args?: unknown });
 
 /** What `init.ts` exports: the theme and network a run reads, the plugins it lists, and the keymap Core runs. */

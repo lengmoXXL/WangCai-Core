@@ -12,12 +12,11 @@ import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
 
 // The keys Core binds by itself. Ctrl+h and Ctrl+l are what walks the window's three panes — the list of workspaces,
-// the page of the workspace in front, and the right sidebar's tab in front — so they answer inside a field too: a
-// terminal is where the keys most often are.
+// the page of the workspace in front, and the right sidebar's tab in front.
 const DEFAULT_KEYS = {
-  '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页', insert: true },
-  '<C-h>': { event: 'core:focus-left', desc: '焦点左移一格', insert: true },
-  '<C-l>': { event: 'core:focus-right', desc: '焦点右移一格', insert: true },
+  '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页' },
+  '<C-h>': { event: 'core:focus-left', desc: '焦点左移一格' },
+  '<C-l>': { event: 'core:focus-right', desc: '焦点右移一格' },
 };
 
 // A previewed page is made of inline scripts and remote assets, which the renderer's CSP forbids; serving it

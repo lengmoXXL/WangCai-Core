@@ -24,10 +24,10 @@ const pageOf = (target: EventTarget | null) => target instanceof Element ? targe
 /**
  * The window's keymap. It picks the keys a press is judged by — the global ones, and inside a page those plus the local
  * keys that answer there — and hands a whole match back to the main process, where the bindings run; the matching itself
- * is the SDK's. While a prefix waits a hint lists what the next key may be. Ctrl+Shift+Q leaves the field, so that page's
- * local keys answer again; an Escape on its own still belongs to whatever the field holds, however many times it is
- * pressed, so that a field which is also an editor is not left without the keyboard by a reader leaving the insert mode —
- * unless a prefix is waiting, which that Escape cancels.
+ * is the SDK's. A field or a terminal is judged by the same keys as the page around it. While a prefix waits a hint lists
+ * what the next key may be. Ctrl+Shift+Q leaves the field; an Escape on its own still belongs to whatever the field holds,
+ * however many times it is pressed, so that a field which is also an editor is not left without the keyboard by a reader
+ * leaving the insert mode — unless a prefix is waiting, which that Escape cancels.
  */
 export function bindWindowKeys(config: KeymapPayload, corner: HTMLElement) {
   const leader = readStroke(config.leader);
@@ -37,14 +37,14 @@ export function bindWindowKeys(config: KeymapPayload, corner: HTMLElement) {
     run: () => { void call('key', binding.id).catch(console.error); },
   }));
   const globals = entries.filter((binding) => binding.scope === 'global');
-  const globalTries = triesOf(globals, { leader });
+  const globalTries = triesOf(globals, { leader, fields: 'all' });
   // A page's tries are built the first time it is pressed in and kept for the rest of the session.
   const pages = new Map<string, Tries<RunnableBinding>>();
   const pageTries = (plugin: string) => {
     let tries = pages.get(plugin);
     if (!tries) {
       const local = entries.filter((binding) => binding.scope === 'local' && (binding.plugin === undefined || binding.plugin === plugin));
-      tries = triesOf([...globals, ...local], { leader });
+      tries = triesOf([...globals, ...local], { leader, fields: 'all' });
       pages.set(plugin, tries);
     }
     return tries;
