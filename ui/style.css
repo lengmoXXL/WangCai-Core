@@ -24,10 +24,10 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .plugin-error { flex: 1; min-width: 0; padding: 48px 16px 16px; white-space: pre-wrap; overflow: auto; color: var(--wc-red); }
 .desktop-sidebar { flex-shrink: 0; min-width: 0; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; }
 .sidebar-left { padding-top: var(--wc-chrome); background: var(--wc-surface); -webkit-app-region: drag; }
-.workspaces { --wc-row-inset: 3px; flex: 1; min-height: 0; overflow-y: auto; padding: 2px 1px 10px; -webkit-app-region: no-drag; }
+.workspaces { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 0 10px; -webkit-app-region: no-drag; }
 /* A bar here would narrow the rows; the list still scrolls by wheel. */
 .workspaces::-webkit-scrollbar { display: none; }
-.workspace { display: flex; align-items: center; height: 22px; margin: 0 var(--wc-row-inset); padding: 0 5px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+.workspace { display: flex; align-items: center; height: 22px; padding: 0 5px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .workspace.selected { background: var(--wc-background); box-shadow: inset 0 0 0 1px var(--wc-border); }
 /* The slot keeps its width while it is empty, so a row that starts working does not shift its name. */
 .workspace .state { flex: 0 0 12px; color: var(--wc-accent); font-size: 11px; line-height: 1; }
@@ -47,7 +47,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace-group-bar { display: flex; gap: 2px; align-items: center; height: 22px; padding: 0 6px 0 4px; color: var(--wc-foreground); font-size: 11px; font-weight: 700; letter-spacing: .02em; cursor: pointer; }
 /* A row a group holds steps in one slot, so a row outside every group still reads as standing on its own. */
 .workspace-group-rows { --wc-group-indent: 20px; }
-.workspace-group-rows .workspace { padding-left: calc(var(--wc-group-indent) - var(--wc-row-inset)); }
+.workspace-group-rows .workspace { padding-left: var(--wc-group-indent); }
 /* A line keeps a pixel of height and sits above the entry it belongs to, so a drag can be aimed at it at all. */
 .workspace-line { position: relative; z-index: 1; height: 1px; }
 /* An empty group is left with only its one line, and that line stands taller so it and the line below the group stay apart. */
