@@ -19,9 +19,9 @@
 发 `core:focus-right` 交给右边一格，没有地方放焦点的那一格跳过，走到头就不再动。
 `init.ts` 的绑定和插件的 `keys` 都把 `event` 写成这几个名字之一即可。
 
-`{ command }` 与 `{ run }` 这两种拿到 `{ args, profile, publish, request, send, open, machine, exec, input, pick }`：`args` 是绑定里写的参数，
+`{ command }` 与 `{ run }` 这两种拿到 `{ args, profile, publish, request, send, open, notify, machine, exec, input, pick }`：`args` 是绑定里写的参数，
 `profile` 是主题配置，`publish` 发事件，`request` 调插件的界面方法（插件用 `ui.handle` 注册的那些），`send` 只往窗口发一条带名字的消息
-（窗口里订阅这个名字的视图会收到），`open` 打开链接。
+（窗口里订阅这个名字的视图会收到），`open` 打开链接，`notify(message)` 在窗口右下角显示一条消息（多行照排，5 秒后自己消失，点一下立刻关，不抢焦点）。
 
 剩下四个用来在机器上跑命令，参数现问现取：
 
@@ -86,11 +86,11 @@ export default {
   },
   commands: {
     'workspace.new': ({ args, request }) => request('terminal-agent', 'workspace-create', { key: args }),
-    disk: async ({ machine, exec, pick, send }) => {
+    disk: async ({ machine, exec, pick, notify }) => {
       const path = await pick({ title: '看哪个目录', items: ['/', '/home', '/tmp'] });
       if (path === undefined) return; // 取消了就不跑
       const { stdout } = await exec(machine(), 'df', ['-h', path]);
-      send('my:df', stdout);
+      notify(stdout);
     },
   },
 } satisfies Config;

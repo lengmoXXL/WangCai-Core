@@ -156,9 +156,16 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .installs .install-message { grid-column: 1 / -1; max-height: 180px; margin: 0; overflow: auto; color: var(--wc-muted); font-size: 11px; white-space: pre-wrap; }
 .installs .install-message:empty { display: none; }
 /* A bound sequence waiting for its next key: what that key may be, as Neovim's which-key says it. */
-.which-key { position: fixed; right: 12px; bottom: 12px; z-index: 21; display: grid; gap: 2px; min-width: 160px; max-width: 320px; padding: 8px; border: 1px solid var(--wc-border); border-radius: 8px; background: var(--wc-surface); box-shadow: 0 8px 24px color-mix(in srgb, var(--wc-background) 70%, transparent); font-size: 12px; pointer-events: none; }
+.which-key { display: grid; gap: 2px; min-width: 160px; max-width: 320px; padding: 8px; border: 1px solid var(--wc-border); border-radius: 8px; background: var(--wc-surface); box-shadow: 0 8px 24px color-mix(in srgb, var(--wc-background) 70%, transparent); font-size: 12px; pointer-events: none; }
 .which-key[hidden] { display: none; }
 .which-key-head { padding: 0 2px 4px; color: var(--wc-muted); font-size: 10px; letter-spacing: .09em; }
 .which-key-row { display: flex; gap: 8px; align-items: baseline; padding: 1px 2px; }
 .which-key kbd { min-width: 1.6em; color: var(--wc-accent); font-family: inherit; }
 .which-key span { color: color-mix(in srgb, var(--wc-foreground) 82%, var(--wc-muted)); }
+
+/* The corner the key hint and what a binding says share: the cards above, the hint under them, and nothing there taking
+ * a click that belongs to the page. */
+.corner { position: fixed; right: 12px; bottom: 12px; z-index: 21; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+.notifications { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 360px; }
+.notification { max-height: 30vh; overflow: auto; padding: 6px 10px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-surface); color: var(--wc-foreground); box-shadow: 0 8px 24px color-mix(in srgb, var(--wc-background) 70%, transparent); font-size: 12px; white-space: pre-wrap; word-break: break-word; cursor: pointer; pointer-events: auto; }
+.notification:hover { border-color: var(--wc-accent); }

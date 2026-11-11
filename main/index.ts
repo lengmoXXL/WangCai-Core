@@ -118,7 +118,7 @@ export async function activate(host: CoreHost): Promise<Core> {
   };
   const keymap = keymapOf(host.config.keymap, {
     profile, publish, request, send: host.send, open: host.openExternal,
-    machine: () => front, exec,
+    machine: () => front, exec, notify: (message) => host.send('core:notify', message),
     input: (options) => ask('input', options), pick: (options) => ask('pick', options),
   }, DEFAULT_KEYS);
   const methods: Record<string, (...args: any[]) => unknown> = {

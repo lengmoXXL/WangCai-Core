@@ -6,6 +6,7 @@ import { call } from './bridge';
 import { installsPage } from './installs';
 import { bindWindowKeys, handKeysTo, visiblePageOf } from './keymap';
 import { sidebarDividers } from './layout';
+import { notifications } from './notify';
 import { prompts } from './prompt';
 import { sidebarTabs } from './tabs';
 import { workspaceSidebar } from './workspace-sidebar';
@@ -44,9 +45,15 @@ async function start() {
   if (!plugins.length) main.textContent = '未安装插件';
   // The report is appended after the text an empty pane writes, which would replace it.
   main.append(agentDownload());
+  // The window's bottom-right corner holds what a binding says and, under it, the hint of a prefix waiting for its next
+  // key: one column, so neither covers the other.
+  const corner = document.createElement('div');
+  corner.className = 'corner';
+  document.body.append(corner);
+  disposers.push(notifications(corner));
   // Every bound sequence — Core's, the plugins' and init.ts's — is read once the plugins have activated, since they add
   // theirs.
-  disposers.push(bindWindowKeys(await call<KeymapPayload>('keymap')));
+  disposers.push(bindWindowKeys(await call<KeymapPayload>('keymap'), corner));
   disposers.push(prompts(root));
   // The tab strip is built before `workspaceColumn`, which is what knows the page the keys fall back to, so it asks for
   // that page only when it hands the keys over, once `workspaceColumn` is there.

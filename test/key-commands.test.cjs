@@ -26,6 +26,7 @@ const writeInit = (home, workspaces = []) => writeFileSync(join(home, '.config/w
     '<leader>ei': { command: 'echo', desc: '回显', global: true },
     '<leader>ep': { command: 'choose', desc: '选一个', global: true },
     '<leader>em': { command: 'where', desc: '当前机器', global: true },
+    '<leader>es': { command: 'say', desc: '说一句', global: true },
   },
   commands: {
     echo: async ({ input, exec, publish }) => {
@@ -41,6 +42,10 @@ const writeInit = (home, workspaces = []) => writeFileSync(join(home, '.config/w
       await publish('${probeEvent}', code + ':' + stdout.trim());
     },
     where: async ({ machine, publish }) => { await publish('${probeEvent}', machine()?.host ?? 'none'); },
+    say: async ({ input, notify }) => {
+      const text = await input({ title: '说什么' });
+      notify(text === undefined ? '取消了' : text);
+    },
   },
 };
 `);
@@ -112,3 +117,22 @@ test('a command reads the machine of the workspace in front', { timeout: 180000 
   await said('dev.example');
   assert.deepEqual(errors, []);
 }, [provider]));
+
+test('a key says what was typed, in a card that a click closes and that goes away on its own', { timeout: 180000 }, () => withCommands('wangcai-key-notify', async ({ page, errors }) => {
+  const card = page.locator('.notification');
+  const says = async (text) => {
+    await press(page, 'Control+Space', 'e', 's');
+    const field = page.getByRole('dialog', { name: '说什么' }).getByRole('textbox');
+    await field.waitFor();
+    await field.fill(text);
+    await field.press('Enter');
+    await until(async () => (await card.textContent()) === text);
+  };
+  await says('你好');
+  await card.click();
+  await card.waitFor({ state: 'detached' });
+  // Left alone, it goes away by itself.
+  await says('再见');
+  await card.waitFor({ state: 'detached' });
+  assert.deepEqual(errors, []);
+}));

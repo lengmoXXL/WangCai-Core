@@ -4,8 +4,8 @@ import type { Machine, Profile } from '@lengmoxxl/sdk';
  * The values are the user's own code, so nothing here is trusted beyond its shape. */
 export interface KeymapInput { leader?: unknown; timeout?: unknown; keys?: unknown; commands?: unknown }
 
-/** What a binding's script reaches: publish, request, open and send, the machine in front and the command run on it,
- * the two asks the window draws, the profile, and the binding's own args. */
+/** What a binding's script reaches: publish, request, open, send and notify, the machine in front and the command run
+ * on it, the two asks the window draws, the profile, and the binding's own args. */
 export interface KeyContext {
   args?: unknown;
   profile: Profile;
@@ -23,6 +23,8 @@ export interface KeyContext {
   /** Asks with a list in the window — typing filters it, the arrows move, Enter takes one — and waits for the item
    * taken; nothing when the ask was dismissed. */
   pick(options: { title: string; items: string[] }): Promise<string | undefined>;
+  /** Says a message in the corner of the window, which goes away on its own or when it is clicked. */
+  notify(message: string): void;
 }
 
 /** What one command reports: how it ended, and what it wrote, decoded as UTF-8. */

@@ -29,7 +29,7 @@ const pageOf = (target: EventTarget | null) => target instanceof Element ? targe
  * pressed, so that a field which is also an editor is not left without the keyboard by a reader leaving the insert mode —
  * unless a prefix is waiting, which that Escape cancels.
  */
-export function bindWindowKeys(config: KeymapPayload) {
+export function bindWindowKeys(config: KeymapPayload, corner: HTMLElement) {
   const leader = readStroke(config.leader);
   if (!leader) console.error(`Keymap leader ${config.leader}: cannot be read`);
   const entries: RunnableBinding[] = config.bindings.map((binding) => ({
@@ -56,7 +56,7 @@ export function bindWindowKeys(config: KeymapPayload) {
   const hint = document.createElement('div');
   hint.className = 'which-key';
   hint.hidden = true;
-  document.body.append(hint);
+  corner.append(hint);
   const onPrefix = (node: TrieNode<RunnableBinding> | undefined, labels: string[]) => {
     if (!node) { hint.hidden = true; return; }
     const head = document.createElement('div');
