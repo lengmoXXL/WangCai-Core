@@ -193,7 +193,11 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
     close.onclick = () => closeTab(tab.key);
     element.append(button, close);
     element.draggable = true;
-    dragSource(element, () => { dragging = tab.key; }, () => { dragging = undefined; }, header);
+    // A native drag swallows the click that would have chosen the tab, so the drag chooses it.
+    dragSource(element, () => {
+      dragging = tab.key;
+      select(tab.key);
+    }, () => { dragging = undefined; }, header);
     element.ondragover = (event) => {
       if (dragging === undefined || dragging === tab.key) return;
       event.preventDefault();
