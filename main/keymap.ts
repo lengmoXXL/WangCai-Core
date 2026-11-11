@@ -1,10 +1,11 @@
-import type { Profile } from '@lengmoxxl/sdk';
+import type { Machine, Profile } from '@lengmoxxl/sdk';
 
 /** What init.ts holds under `leader`, `timeout`, `keys` and `commands`, as the shell read it out of the file.
  * The values are the user's own code, so nothing here is trusted beyond its shape. */
 export interface KeymapInput { leader?: unknown; timeout?: unknown; keys?: unknown; commands?: unknown }
 
-/** What a binding's script reaches: publish, request, open and send, the profile, and the binding's own args. */
+/** What a binding's script reaches: publish, request, open and send, the machine in front and the command run on it,
+ * the two asks the window draws, the profile, and the binding's own args. */
 export interface KeyContext {
   args?: unknown;
   profile: Profile;
@@ -12,7 +13,20 @@ export interface KeyContext {
   request(id: string, method: string, params?: unknown): Promise<unknown>;
   send(topic: string, data?: unknown): void;
   open(url: string): Promise<unknown>;
+  /** The machine of the workspace in front, and nothing when no workspace is in front. */
+  machine(): Machine | undefined;
+  /** Runs one program on a machine and waits for it to end: `machine()`, a `{ host }` written here, or nothing for the
+   * machine Core runs on. The directory it runs in is `/` unless the call names one. */
+  exec(machine: Pick<Machine, 'host' | 'env'> | undefined, program: string, args: string[], options?: { cwd?: string; env?: Record<string, string> }): Promise<CommandResult>;
+  /** Asks with a field in the window and waits for what was typed; nothing when the ask was dismissed. */
+  input(options: { title: string; value?: string; placeholder?: string }): Promise<string | undefined>;
+  /** Asks with a list in the window — typing filters it, the arrows move, Enter takes one — and waits for the item
+   * taken; nothing when the ask was dismissed. */
+  pick(options: { title: string; items: string[] }): Promise<string | undefined>;
 }
+
+/** What one command reports: how it ended, and what it wrote, decoded as UTF-8. */
+export interface CommandResult { code: number; stdout: string; stderr: string }
 
 /** Where a binding fires: `local` fires only while the focus sits inside a plugin's page, `global` fires wherever the
  * focus is. */

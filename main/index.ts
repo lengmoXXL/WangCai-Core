@@ -1,11 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { Machine, WorkspaceActive } from '@lengmoxxl/sdk';
 import type { TabRecord } from '@lengmoxxl/sdk/channel';
 import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
 import { agentInstaller } from './agent';
 import type { Core, CoreHost } from './host';
-import { keymapOf } from './keymap';
+import { keymapOf, type KeyContext } from './keymap';
+import { connectorOf } from './machines';
 import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
 
@@ -46,14 +48,22 @@ export async function activate(host: CoreHost): Promise<Core> {
   }
   syncSources(host.sources, storage, host.version);
   const agents = agentInstaller(storage, network, (state) => host.send('core:agent', state));
+  const connectMachine = connectorOf(agents);
+  // The machine of the workspace in front, which a binding reads with `machine()`: a provider reports it as the window
+  // switches workspaces, and what a provider publishes passes through here on its way to the window.
+  let front: Machine | undefined;
+  const broadcast = (topic: string, data: unknown) => {
+    if (topic === 'workspace:active') front = (data as WorkspaceActive | null)?.machine;
+    host.send(topic, data);
+  };
   // Loaded on the first ask, and again after a plugin was built anew: the window and the protocols all wait
   // for whatever set is current. It takes the keymap made below, whose own calls reach back through this one,
   // so either has to be usable before the other exists.
   let loading: ReturnType<typeof loadPlugins> | undefined;
   const loaded = () => loading ??= host.plugins().then((plugins) => loadPlugins({
     storageDirectory: storage,
-    agents,
-    profile, plugins, broadcast: host.send, keymap,
+    connect: connectMachine,
+    profile, plugins, broadcast, keymap,
   }));
   // Serves a loaded plugin's files to the renderer; the directories exist once loading is done.
   host.protocol.handle(pluginScheme, async (request) => {
@@ -87,7 +97,30 @@ export async function activate(host: CoreHost): Promise<Core> {
   // The window and the keymap ask for the same two calls.
   const publish = async (event: string, data?: unknown) => (await loaded()).publish(event, data);
   const request = async (id: string, method: string, params?: unknown) => (await loaded()).request(id, method, params);
-  const keymap = keymapOf(host.config.keymap, { profile, publish, request, send: host.send, open: host.openExternal }, DEFAULT_KEYS);
+  // An ask a binding makes is a dialog in the window: the call waits here for the answer the window sends back, and one
+  // dismissed there comes back as nothing.
+  const asking = new Map<number, (value: unknown) => void>();
+  let asks = 0;
+  const ask = (kind: 'input' | 'pick', options: object) => new Promise<string | undefined>((resolve) => {
+    const id = asks += 1;
+    asking.set(id, (value) => resolve(typeof value === 'string' ? value : undefined));
+    host.send('core:prompt', { id, kind, ...options });
+  });
+  const exec: KeyContext['exec'] = async (machine, program, args, options = {}) => {
+    const node = await connectMachine(machine ?? {});
+    try {
+      const { code, stdout, stderr } = await node.subprocess.exec(program, args, { cwd: options.cwd ?? '/', env: options.env });
+      const text = new TextDecoder();
+      return { code, stdout: text.decode(stdout), stderr: text.decode(stderr) };
+    } finally {
+      node.disconnect();
+    }
+  };
+  const keymap = keymapOf(host.config.keymap, {
+    profile, publish, request, send: host.send, open: host.openExternal,
+    machine: () => front, exec,
+    input: (options) => ask('input', options), pick: (options) => ask('pick', options),
+  }, DEFAULT_KEYS);
   const methods: Record<string, (...args: any[]) => unknown> = {
     publish,
     plugins: async () => (await loaded()).plugins,
@@ -95,6 +128,7 @@ export async function activate(host: CoreHost): Promise<Core> {
     config: () => profile,
     keymap: keymap.payload,
     key: keymap.run,
+    'prompt-answer': (id: number, value: unknown) => { asking.get(id)?.(value); asking.delete(id); },
     statuses: host.statuses,
     fullscreen: host.fullscreen,
     'agent-retry': async () => {

@@ -1,4 +1,5 @@
-import { openMachine, type ConnectionOptions, type MachineConnection } from '@lengmoxxl/sdk';
+import { openMachine, type ConnectionOptions, type Machine, type MachineConnection } from '@lengmoxxl/sdk';
+import type { Agents } from './agent';
 import { withEnvironment } from './environment';
 
 // One connection per machine for the whole app: a plugin that asks for a machine another plugin already
@@ -34,3 +35,9 @@ export async function connect(options: ConnectionOptions) {
     if (!joined) opening.delete(target);
   }
 }
+
+/** How a machine is named where one is asked for — a plugin's `connect`, a binding's `exec` — read as the connection it
+ * takes: an ssh host, or the machine Core runs on, with the agent put there first where it is missing. */
+export const connectorOf = (agents: Agents) => async (machine: Pick<Machine, 'host' | 'env'>, signal?: AbortSignal) => connect(machine.host
+  ? { type: 'ssh', host: machine.host, agent: agents.ssh, env: machine.env, signal }
+  : { type: 'local', binary: await agents.local(), env: machine.env, signal });

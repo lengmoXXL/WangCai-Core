@@ -76,17 +76,18 @@ const mockWorkspaceRow = (id = '') => ({ id, label: '~', machine: 'local', runni
 // asks it for a place among them, which is the whole of what Core's sidebar reads from a provider.
 //
 // A `ui` given here is drawn as this provider's page in the main pane, which is where a case about the keys looks for
-// its field.
-const mockWorkspace = ({ id = 'workspace', rows = [], keys, ui } = {}) => plugin(id, {
+// its field. An `active` given here is what it reports as the workspace in front when one is selected.
+const mockWorkspace = ({ id = 'workspace', rows = [], keys, ui, active } = {}) => plugin(id, {
   ...(ui ? { 'ui.js': ui } : {}),
-  'main.cjs': `exports.activate = ({ ui }) => {
+  'main.cjs': `exports.activate = ({ global, ui }) => {
   const rows = ${JSON.stringify(rows)};
   const template = ${JSON.stringify(mockWorkspaceRow())};
+  const active = ${JSON.stringify(active ?? null)};
   ui.handle('workspaces', () => rows);
   ui.handle('workspace-menu', () => [{ key: 'local', label: '本机' }]);
   // Core selects a row after it creates one and after a refresh, so this answers those calls where a mock has nothing to
   // select: a missing method only leaves an 'Unknown plugin method' on the console.
-  ui.handle('workspace-select', () => undefined);
+  ui.handle('workspace-select', () => { if (active) void global.publish('workspace:active', active); });
   ui.handle('workspace-create', () => {
     const row = { ...template, id: \`w\${rows.length + 1}\` };
     rows.push(row);

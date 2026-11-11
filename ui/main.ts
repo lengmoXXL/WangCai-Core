@@ -6,6 +6,7 @@ import { call } from './bridge';
 import { installsPage } from './installs';
 import { bindWindowKeys, handKeysTo, visiblePageOf } from './keymap';
 import { sidebarDividers } from './layout';
+import { prompts } from './prompt';
 import { sidebarTabs } from './tabs';
 import { workspaceSidebar } from './workspace-sidebar';
 import type { KeymapPayload } from '../main/keymap';
@@ -46,6 +47,7 @@ async function start() {
   // Every bound sequence — Core's, the plugins' and init.ts's — is read once the plugins have activated, since they add
   // theirs.
   disposers.push(bindWindowKeys(await call<KeymapPayload>('keymap')));
+  disposers.push(prompts(root));
   // The tab strip is built before `workspaceColumn`, which is what knows the page the keys fall back to, so it asks for
   // that page only when it hands the keys over, once `workspaceColumn` is there.
   const tabStrip = await sidebarTabs(root, () => workspaceColumn.pageInFront());

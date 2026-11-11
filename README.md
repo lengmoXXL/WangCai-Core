@@ -19,9 +19,17 @@
 发 `core:focus-right` 交给右边一格，没有地方放焦点的那一格跳过，走到头就不再动。
 `init.ts` 的绑定和插件的 `keys` 都把 `event` 写成这几个名字之一即可。
 
-`{ command }` 与 `{ run }` 这两种拿到 `{ args, profile, publish, request, send, open }`：`args` 是绑定里写的参数，`profile` 是主题配置，
-`publish` 发事件，`request` 调插件的界面方法（插件用 `ui.handle` 注册的那些），`send` 只往窗口发一条带名字的消息
+`{ command }` 与 `{ run }` 这两种拿到 `{ args, profile, publish, request, send, open, machine, exec, input, pick }`：`args` 是绑定里写的参数，
+`profile` 是主题配置，`publish` 发事件，`request` 调插件的界面方法（插件用 `ui.handle` 注册的那些），`send` 只往窗口发一条带名字的消息
 （窗口里订阅这个名字的视图会收到），`open` 打开链接。
+
+剩下四个用来在机器上跑命令，参数现问现取：
+
+- `machine()` 是当前工作区的机器（`{ id, name, host?, env? }`），没有工作区在前面时是 `undefined`。
+- `exec(machine, program, args, options?)` 在那台机器上跑一个程序，等它结束，返回 `{ code, stdout, stderr }`（输出按 UTF-8 解码）。
+  第一个参数给 `machine()`、自己写 `{ host: 'dev' }`，或给 `undefined` 表示本机；`options` 是 `{ cwd, env }`，`cwd` 缺省 `/`。
+- `input({ title, value?, placeholder? })` 在窗口中间弹输入框，`pick({ title, items })` 弹选择框（打字过滤、上下键移动、Enter 或点一下确认）。
+  两个都返回 `Promise`，等到答案才往下走；Esc 或点框外面取消，拿到 `undefined`。弹框期间焦点在框里，答完还给原来那一页。
 
 `desc` 是按下前缀后右下角列出的文字。
 
@@ -66,19 +74,26 @@ Core 自带的键位：
 你自己那份 `init.ts` 大致如下：
 
 ```ts
-import { appendFileSync } from 'node:fs';
+import type { Config } from 'wangcai.api';
 
 export default {
   timeout: 800,           // 前缀等下一个键的时间，毫秒
   keys: {
     '<leader>p': { event: 'plugin-page', desc: '打开插件页', global: true },
-    '<leader>log': { desc: '记一行', run: () => appendFileSync('/tmp/wangcai.log', `${Date.now()}\n`) }, // 默认 local
+    '<leader>log': { desc: '记一行', run: ({ send }) => send('my:log', Date.now()) }, // 默认 local
     '<leader>wn': { command: 'workspace.new', args: 'local', desc: '本机新开一个工作区', global: true },
+    '<leader>df': { command: 'disk', desc: '看当前机器的磁盘', global: true },
   },
   commands: {
     'workspace.new': ({ args, request }) => request('terminal-agent', 'workspace-create', { key: args }),
+    disk: async ({ machine, exec, pick, send }) => {
+      const path = await pick({ title: '看哪个目录', items: ['/', '/home', '/tmp'] });
+      if (path === undefined) return; // 取消了就不跑
+      const { stdout } = await exec(machine(), 'df', ['-h', path]);
+      send('my:df', stdout);
+    },
   },
-};
+} satisfies Config;
 ```
 
 插件在 `main.cjs` 里用 `exports.keys = { … }` 声明键位，写法与 `init.ts` 的 `keys` 相同，动作只能发事件或跑自己
