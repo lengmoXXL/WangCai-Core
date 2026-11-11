@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { withHome, withWindow } = require('@lengmoxxl/wangcai-testkit');
-const { drag, drawnOrder, firstInsideLine, groupNames, lineAt, lineBeside, lineBeforeGroup, makeGroup, onLine, rowId, rowIds, storedGroupNames, untilReading, watch, withGroupRecords, workspaceLists, workspaces } = require('./core-ui.cjs');
+const { drawnOrder, firstInsideLine, groupNames, lineAt, lineBeside, lineBeforeGroup, makeGroup, onLine, rowId, rowIds, storedGroupNames, untilReading, watch, withGroupRecords, workspaceLists, workspaces } = require('./core-ui.cjs');
 
 test('a group is made, renamed, folded, moved and remembered', { timeout: 180000 }, () => withHome('wangcai-groups', workspaceLists(), async ({ home, open }) => {
   let { page, close } = await open();
@@ -38,11 +38,11 @@ test('a group is made, renamed, folded, moved and remembered', { timeout: 180000
   await makeGroup(page, '二组');
   await untilReading(() => groupNames(page), ['一组', '二组'], 'the second group is drawn under the first');
   // A group is dragged by its own bar onto the line above another group, and takes that place.
-  await drag(page, page.getByRole('button', { name: '分组 二组' }), await lineBeforeGroup(page, 0), { targetPosition: onLine });
+  await page.getByRole('button', { name: '分组 二组' }).dragTo(await lineBeforeGroup(page, 0), { targetPosition: onLine });
   await untilReading(() => groupNames(page), ['二组', '一组'], 'the dragged group moved to the line it was dropped on');
   await untilReading(() => storedGroupNames(home), ['二组', '一组'], 'the groups file holds the new order');
   // Dropping a group on the line in front of itself leaves the order of the groups alone.
-  await drag(page, page.getByRole('button', { name: '分组 二组' }), await lineBeforeGroup(page, 0), { targetPosition: onLine });
+  await page.getByRole('button', { name: '分组 二组' }).dragTo(await lineBeforeGroup(page, 0), { targetPosition: onLine });
   await untilReading(() => groupNames(page), ['二组', '一组'], 'the groups keep their order');
   await untilReading(() => storedGroupNames(home), ['二组', '一组'], 'and the file is left as it was');
   const deleteGroup = async (target) => {
@@ -107,7 +107,7 @@ test('a group dropped on the line that closes the list comes last', { timeout: 1
   await makeGroup(page, '甲');
   await makeGroup(page, '乙');
   await untilReading(() => groupNames(page), ['甲', '乙'], 'the groups stand in the order they were made');
-  await drag(page, page.getByRole('button', { name: '分组 甲' }), page.locator('.workspaces > :last-child'), { targetPosition: onLine });
+  await page.getByRole('button', { name: '分组 甲' }).dragTo(page.locator('.workspaces > :last-child'), { targetPosition: onLine });
   await untilReading(() => groupNames(page), ['乙', '甲'], 'the dragged group ends the list');
   await untilReading(() => storedGroupNames(home), ['乙', '甲'], 'and the groups file holds that order');
   assert.deepEqual(errors, []);
@@ -119,8 +119,8 @@ test('a group dropped on the line above a row stands after the groups at that pl
   await makeGroup(page, '甲');
   await makeGroup(page, '乙');
   // Both groups are put in the same place, the one in front of the second row.
-  await drag(page, page.getByRole('button', { name: '分组 乙' }), await lineBeside(page, rows.nth(1), -1), { targetPosition: onLine });
-  await drag(page, page.getByRole('button', { name: '分组 甲' }), await lineBeside(page, rows.nth(1), -1), { targetPosition: onLine });
+  await page.getByRole('button', { name: '分组 乙' }).dragTo(await lineBeside(page, rows.nth(1), -1), { targetPosition: onLine });
+  await page.getByRole('button', { name: '分组 甲' }).dragTo(await lineBeside(page, rows.nth(1), -1), { targetPosition: onLine });
   await untilReading(() => drawnOrder(page), ['row', '乙', '甲', 'row', 'row'], 'the group put there last stands after the one already there');
   assert.deepEqual(errors, []);
 }));
@@ -131,10 +131,10 @@ test('a row dropped on the line above a group stands in front of the groups ther
   await makeGroup(page, '甲');
   await makeGroup(page, '乙');
   for (const name of ['甲', '乙']) {
-    await drag(page, page.getByRole('button', { name: `分组 ${name}` }), await lineBeside(page, rows.nth(1), -1), { targetPosition: onLine });
+    await page.getByRole('button', { name: `分组 ${name}` }).dragTo(await lineBeside(page, rows.nth(1), -1), { targetPosition: onLine });
   }
   await untilReading(() => drawnOrder(page), ['row', '甲', '乙', 'row'], 'both groups stand between the two rows');
-  await drag(page, rows.nth(1), await lineBeforeGroup(page, 0), { targetPosition: onLine });
+  await rows.nth(1).dragTo(await lineBeforeGroup(page, 0), { targetPosition: onLine });
   await untilReading(() => drawnOrder(page), ['row', 'row', '甲', '乙'], 'the dragged row stands in front of both groups');
   assert.deepEqual(errors, []);
 }));
@@ -145,7 +145,7 @@ test('a row dropped on the line that closes the list stands after the groups the
   await makeGroup(page, '甲');
   await makeGroup(page, '乙');
   await untilReading(() => drawnOrder(page), ['row', 'row', '甲', '乙'], 'both groups stand after both rows, in the order they were made');
-  await drag(page, rows.nth(1), page.locator('.workspaces > :last-child'), { targetPosition: onLine });
+  await rows.nth(1).dragTo(page.locator('.workspaces > :last-child'), { targetPosition: onLine });
   await untilReading(() => drawnOrder(page), ['row', '甲', '乙', 'row'], 'the dragged row stands after both groups');
   assert.deepEqual(errors, []);
 }));
@@ -157,7 +157,7 @@ test('a row dropped in front of a group leaves the groups recorded elsewhere whe
   { name: '乙', after: 0 },
 ], 3, async ({ page, errors }) => {
   await untilReading(() => drawnOrder(page), ['乙', 'row', 'row', '甲', 'row'], 'each group stands where its record places it');
-  await drag(page, page.locator('.workspaces > .workspace').nth(2), await lineBeforeGroup(page, 1), { targetPosition: onLine });
+  await page.locator('.workspaces > .workspace').nth(2).dragTo(await lineBeforeGroup(page, 1), { targetPosition: onLine });
   await untilReading(() => drawnOrder(page), ['乙', 'row', 'row', 'row', '甲'], 'the row takes that place, and 乙 is left at the front');
   assert.deepEqual(errors, []);
 }));
@@ -168,26 +168,26 @@ test('workspaces are dragged onto the lines of the list', { timeout: 180000 }, (
   const groups = page.locator('.workspace-group');
   const kept = await rowIds(rows);
   // A row dropped on the line under itself keeps its place.
-  await drag(page, rows.first(), await lineBeside(page, rows.first(), 1), { targetPosition: onLine });
+  await rows.first().dragTo(await lineBeside(page, rows.first(), 1), { targetPosition: onLine });
   await makeGroup(page, '甲');
   const first = groups.first();
   // A row dropped on the line under a group's bar joins it.
-  await drag(page, rows.first(), firstInsideLine(first), { targetPosition: onLine });
+  await rows.first().dragTo(firstInsideLine(first), { targetPosition: onLine });
   await untilReading(() => rowIds(first.locator('.workspace')), [kept[0]], 'the row is drawn under the group');
   await untilReading(() => rowIds(rows), kept.slice(1), 'and left the list');
   // A second row filed the same way becomes the group's first row.
-  await drag(page, rows.first(), firstInsideLine(first), { targetPosition: onLine });
+  await rows.first().dragTo(firstInsideLine(first), { targetPosition: onLine });
   await untilReading(() => rowIds(first.locator('.workspace')), [kept[1], kept[0]], 'both rows are drawn under the group, the later one first');
-  await drag(page, first.locator('.workspace').last(), firstInsideLine(first), { targetPosition: onLine });
+  await first.locator('.workspace').last().dragTo(firstInsideLine(first), { targetPosition: onLine });
   await untilReading(() => rowIds(first.locator('.workspace')), [kept[0], kept[1]], 'the row moved above the one it was dropped on');
   // The line that closes the list takes a row back out of its group.
   const out = await rowId(first.locator('.workspace'));
-  await drag(page, first.locator('.workspace').first(), page.locator('.workspaces > :last-child'), { targetPosition: onLine });
+  await first.locator('.workspace').first().dragTo(page.locator('.workspaces > :last-child'), { targetPosition: onLine });
   await untilReading(() => rowIds(rows), [kept[2], out], 'the row left its group and stands at the end of the list');
   await untilReading(() => rowIds(first.locator('.workspace')), [kept[1]], 'the group holds the row that stayed');
   // The line at the top stands a row above every group.
   const up = await rowId(first.locator('.workspace'));
-  await drag(page, first.locator('.workspace').first(), lineAt(page, 0), { targetPosition: onLine });
+  await first.locator('.workspace').first().dragTo(lineAt(page, 0), { targetPosition: onLine });
   await untilReading(() => rowIds(rows), [up, kept[2], out], 'the row took the top of the list');
   await untilReading(() => rowIds(first.locator('.workspace')), [], 'and left the group empty');
   await untilReading(() => drawnOrder(page), ['row', '甲', 'row', 'row'], 'with the group drawn under the row that went above it');
@@ -203,19 +203,19 @@ test('a workspace dropped on a line between two groups keeps that place, and one
   await makeGroup(page, '乙');
   const first = groups.first();
   // The first group takes two rows, and one row is left beside the two empty groups.
-  await drag(page, rows.first(), firstInsideLine(first), { targetPosition: onLine });
-  await drag(page, rows.first(), firstInsideLine(first), { targetPosition: onLine });
+  await rows.first().dragTo(firstInsideLine(first), { targetPosition: onLine });
+  await rows.first().dragTo(firstInsideLine(first), { targetPosition: onLine });
   await untilReading(() => rowIds(first.locator('.workspace')), [order[1], order[0]], 'both rows are drawn under the first group');
   await untilReading(() => rowIds(rows), [order[2]], 'one row is left beside the groups');
   await untilReading(() => drawnOrder(page), ['row', '甲', '乙'], 'the row is drawn above both groups');
   // Dropping that row on the line between the two groups puts it between them.
-  await drag(page, rows.first(), await lineBeforeGroup(page, -1), { targetPosition: onLine });
+  await rows.first().dragTo(await lineBeforeGroup(page, -1), { targetPosition: onLine });
   await untilReading(() => drawnOrder(page), ['甲', 'row', '乙'], 'the row stands between the two groups');
   await untilReading(() => rowIds(rows), [order[2]], 'and it is the row that was dragged');
   // A row dragged from one group onto the line of another group joins that group.
   const second = groups.last();
   const fromFirst = order[1];
-  await drag(page, first.locator('.workspace').first(), firstInsideLine(second), { targetPosition: onLine });
+  await first.locator('.workspace').first().dragTo(firstInsideLine(second), { targetPosition: onLine });
   await untilReading(() => rowIds(first.locator('.workspace')), [order[0]], 'the group kept the row that stayed');
   await untilReading(() => rowIds(second.locator('.workspace')), [fromFirst], 'and joined the group it was dropped on');
   assert.deepEqual(errors, []);
@@ -236,12 +236,12 @@ test('a row dragged to the top of the list stands above every group', { timeout:
   await untilReading(() => drawnOrder(page), ['row', '甲', '乙', '丙'], 'the row left beside them is drawn above the groups');
   // Each group is dragged onto the line at the top, which is the place above the row.
   for (const name of ['甲', '乙', '丙']) {
-    await drag(page, page.getByRole('button', { name: `分组 ${name}` }), lineAt(page, 0), { targetPosition: onLine });
+    await page.getByRole('button', { name: `分组 ${name}` }).dragTo(lineAt(page, 0), { targetPosition: onLine });
   }
   await untilReading(() => drawnOrder(page), ['丙', '乙', '甲', 'row'], 'the three groups came above the row, the last one dropped in front');
   // Dragging that row back to the top puts it in front of all three groups.
   const loose = await rowId(rows);
-  await drag(page, rows.first(), lineAt(page, 0), { targetPosition: onLine });
+  await rows.first().dragTo(lineAt(page, 0), { targetPosition: onLine });
   await untilReading(() => drawnOrder(page), ['row', '丙', '乙', '甲'], 'the row took the top of the list, above every group');
   await untilReading(() => rowIds(rows), [loose], 'and it is the row that was dragged');
   // What the window draws is what it reads again on its next start.
@@ -259,7 +259,7 @@ test('a row dropped on a line under two groups recorded at one place stands afte
   { name: '乙', after: 3 },
 ], 3, async ({ page, errors }) => {
   await untilReading(() => drawnOrder(page), ['row', 'row', 'row', '甲', '乙'], 'both groups stand after every row, in the order they were made');
-  await drag(page, page.locator('.workspaces > .workspace').nth(2), page.locator('.workspaces > :last-child'), { targetPosition: onLine });
+  await page.locator('.workspaces > .workspace').nth(2).dragTo(page.locator('.workspaces > :last-child'), { targetPosition: onLine });
   await untilReading(() => drawnOrder(page), ['row', 'row', '甲', '乙', 'row'], 'the row stands after both groups');
   assert.deepEqual(errors, []);
 }));
