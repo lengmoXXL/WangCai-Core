@@ -1,16 +1,13 @@
 html, body, #root { margin: 0; width: 100%; height: 100%; }
 body { background: var(--wc-background); color: var(--wc-foreground); font-family: var(--wc-font); }
-#root { display: flex; overflow: hidden; padding: 3px; box-sizing: border-box; }
+#root { display: flex; overflow: hidden; padding: 3px; box-sizing: border-box; --wc-pane-corner: 8px; --wc-pane-line: 1px solid var(--wc-border); }
 /* Room for the window buttons above the shell's first row; a full screen says 0px, since CSS cannot see the
    chrome macOS draws. */
 :root { --wc-chrome: 36px; }
-/* Only the sidebar on the right is outlined: the terminal fills its pane black, so the list and the agent pane part by
-   their own shade. */
-.desktop-main, .sidebar-left, .sidebar-right { overflow: hidden; }
-/* The outline turns the corner toward the page and stops: the far side is the window's own edge. */
-.sidebar-right { border: 1px solid var(--wc-border); border-right: 0; border-radius: 8px 0 0 8px; }
-.sidebar-left { border-radius: 8px 0 0 8px; }
-.desktop-main { display: flex; position: relative; flex: 1; min-width: 240px; border-radius: 0 8px 8px 0; }
+.desktop-main, .sidebar-left, .sidebar-right { overflow: hidden; border-radius: var(--wc-pane-corner) 0 0 var(--wc-pane-corner); }
+/* The window's own edge closes the far side: a line there would only double it across the shell's 3px padding. */
+.desktop-main, .sidebar-right { border: var(--wc-pane-line); border-right: 0; }
+.desktop-main { display: flex; position: relative; flex: 1; min-width: 240px; }
 /* The report covers the corner of the page rather than taking a row above it: the page is the plugin's, and a
    download should not change the height it was drawn at. */
 .agent-download { position: absolute; top: 8px; right: 12px; z-index: 2; display: flex; align-items: center; gap: 8px; max-width: 70%; padding: 3px 8px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-overlay); color: var(--wc-muted); font-size: 11px; white-space: nowrap; }
@@ -78,10 +75,13 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .sidebar-right .sidebar-content ::-webkit-scrollbar-thumb:hover { background: #646464b3; }
 .sidebar-right .sidebar-content ::-webkit-scrollbar-thumb:active { background: #bfbfbf66; }
 .sidebar-right .sidebar-content ::-webkit-scrollbar-button { display: none; }
-.sidebar-divider { flex: 0 0 4px; display: flex; justify-content: center; cursor: col-resize; touch-action: none; }
+.sidebar-divider { position: relative; flex: 0 0 4px; display: flex; justify-content: center; cursor: col-resize; touch-action: none; }
 /* The left divider still grabs 4px, but it no longer holds the two panes apart. */
-.sidebar-divider.divider-left { position: relative; z-index: 1; margin: 0 -2px; }
-/* Only the hover pill is painted; on the right the 4px gap itself is the divider. */
+.sidebar-divider.divider-left { z-index: 1; margin: 0 -2px; }
+/* The right divider keeps its 4px as a real gap, so the space itself is what parts the two panes. The page's top and
+   bottom lines cross that gap and run on into the view pane's corner, reaching the point where that pane's own line
+   leaves the curve, so neither line stops short of the other. */
+.sidebar-divider.divider-right::after { content: ''; position: absolute; inset: 0 calc(-1 * var(--wc-pane-corner)) 0 0; border-top: var(--wc-pane-line); border-bottom: var(--wc-pane-line); pointer-events: none; }
 .sidebar-divider::before { content: ''; align-self: stretch; width: 2px; margin: 12px 0; border-radius: 2px; }
 .sidebar-divider:hover::before, .sidebar-divider:focus-visible::before { background: var(--wc-accent); }
 .sidebar-divider:focus-visible { outline: none; }
