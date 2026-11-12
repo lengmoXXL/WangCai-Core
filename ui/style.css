@@ -28,7 +28,8 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 /* A bar here would narrow the rows; the list still scrolls by wheel. */
 .workspaces::-webkit-scrollbar { display: none; }
 .workspace { display: flex; align-items: center; height: 22px; padding: 0 5px; border-radius: 6px; font-size: 12px; cursor: pointer; }
-.workspace.selected { background: var(--wc-background); box-shadow: inset 0 0 0 1px var(--wc-border); }
+/* The mark is a shadow rather than a border, so choosing a row moves none of its content. */
+.workspace.selected { border-radius: 0; background: var(--wc-background); box-shadow: inset -2px 0 0 var(--wc-accent); }
 /* The slot keeps its width while it is empty, so a row that starts working does not shift its name. */
 .workspace .state { flex: 0 0 12px; color: var(--wc-accent); font-size: 11px; line-height: 1; }
 .workspace[data-state=finished] .state { color: var(--wc-green); }
