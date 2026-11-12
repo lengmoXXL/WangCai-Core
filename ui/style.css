@@ -7,7 +7,8 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 /* Only the sidebar on the right is outlined: the terminal fills its pane black, so the list and the agent pane part by
    their own shade. */
 .desktop-main, .sidebar-left, .sidebar-right { overflow: hidden; }
-.sidebar-right { border: 1px solid var(--wc-border); border-radius: 8px; }
+/* The outline turns the corner toward the page and stops: the far side is the window's own edge. */
+.sidebar-right { border: 1px solid var(--wc-border); border-right: 0; border-radius: 8px 0 0 8px; }
 .sidebar-left { border-radius: 8px 0 0 8px; }
 .desktop-main { display: flex; position: relative; flex: 1; min-width: 240px; border-radius: 0 8px 8px 0; }
 /* The report covers the corner of the page rather than taking a row above it: the page is the plugin's, and a
