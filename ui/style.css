@@ -42,7 +42,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace .git .ahead { color: var(--wc-green); }
 /* The mark for changes hangs on the name: the muted grey, so it says something is waiting without a colour of its own. */
 .workspace .changes { flex: 0 0 auto; margin-left: 4px; color: color-mix(in srgb, var(--wc-muted) 82%, transparent); }
-.workspace .meta { flex: 0 0 auto; max-width: 40%; margin-left: auto; padding-left: 8px; overflow: hidden; color: var(--wc-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.workspace .meta { flex: 0 0 auto; max-width: 40%; margin-left: auto; margin-right: 2px; padding-left: 8px; overflow: hidden; color: var(--wc-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-group-bar { display: flex; gap: 2px; align-items: center; height: 22px; padding: 0 6px 0 4px; color: var(--wc-foreground); font-size: 11px; font-weight: 700; letter-spacing: .02em; cursor: pointer; }
 /* A row a group holds steps in one slot, so a row outside every group still reads as standing on its own. */
 .workspace-group-rows { --wc-group-indent: 20px; }
