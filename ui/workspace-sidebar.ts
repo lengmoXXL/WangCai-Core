@@ -1,4 +1,4 @@
-import type { WorkspaceMenuItem, WorkspaceRow, WorkspaceStatus } from '@lengmoxxl/sdk';
+import type { WorkspaceActive, WorkspaceMenuItem, WorkspaceRow, WorkspaceStatus } from '@lengmoxxl/sdk';
 import type { Dispose } from '@lengmoxxl/sdk/channel';
 import type { WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
 import { call } from './bridge';
@@ -46,6 +46,8 @@ export async function workspaceSidebar(options: {
   const groups = await call<WorkspaceGroup[]>('groups');
   // The workspace in front.
   let active: string | undefined;
+  // The front the provider last reported, which can arrive before the rows that hold it do.
+  let reported: string | undefined;
   // A group only decides which workspaces sit together.
   const groupOf = (id: string) => groups.find((group) => group.workspaces.includes(id));
   const groupById = (id: string) => groups.find((group) => group.id === id);
@@ -247,9 +249,9 @@ export async function workspaceSidebar(options: {
   /** A plugin whose views are sidebar tabs has no page in the main pane: Core keeps it hidden. */
   const pageOf = (provider: string) => document.querySelector<HTMLElement>(`.desktop-main > [data-plugin="${provider}"]:not([hidden])`) ?? undefined;
 
-  // A workspace that is chosen is a switch to it, so the keys follow: `settle` only puts the tabs back in order, which it
-  // also does when the rows change. The keys go to the page the provider draws, ahead of the tab in front of the sidebar.
-  const selectWorkspace = (id: string) => {
+  // The keys follow the workspace in front: `settle` only puts the tabs back in order, which it also does when the rows
+  // change. They go to the page the provider draws, ahead of the tab in front of the sidebar.
+  const bringForward = (id: string) => {
     const provider = providerOf(id);
     if (!provider) return;
     active = id;
@@ -259,6 +261,12 @@ export async function workspaceSidebar(options: {
     showRows();
     tabs.settle(active);
     tabs.takeKeys(pageOf(provider));
+  };
+  const selectWorkspace = (id: string) => {
+    const provider = providerOf(id);
+    if (!provider) return;
+    reported = id;
+    bringForward(id);
     void call('request', provider, 'workspace-select', { id }).catch(console.error);
   };
 
@@ -278,13 +286,17 @@ export async function workspaceSidebar(options: {
     if (closing()) return;
     const rows = servedRows();
     tabs.closeGone(rows.map((row) => row.id));
-    if (!rows.some((row) => row.id === active)) {
+    const front = rows.find((row) => row.id === reported) ?? rows.find((row) => row.id === active);
+    if (!front) {
       const first = rows[0];
       if (first) {
         selectWorkspace(first.id);
         return;
       }
       active = undefined;
+    } else if (front.id !== active) {
+      bringForward(front.id);
+      return;
     }
     // Nothing but a reported status moved: its row is patched in place.
     const shape = shapeOf(rows);
@@ -632,6 +644,11 @@ export async function workspaceSidebar(options: {
   };
 
   disposers.push(window.wangcai.subscribe('workspaces', () => void refreshRows()));
+  // A command opens a workspace, or a plugin switches one, without the list being clicked.
+  disposers.push(window.wangcai.subscribe('workspace:active', (value) => {
+    reported = (value as WorkspaceActive | null)?.workspaceId;
+    if (reported && reported !== active) bringForward(reported);
+  }));
   // What an agent reports arrives on a topic of its own: the row drawn for that workspace is patched where it
   // stands, with no list asked for again and no tab told it is in front.
   disposers.push(window.wangcai.subscribe('workspace-status', (value) => {
