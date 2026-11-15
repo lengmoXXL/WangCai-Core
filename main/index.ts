@@ -14,9 +14,9 @@ import { syncSources } from './resources';
 // The keys Core binds by itself. Ctrl+h and Ctrl+l are what walks the window's three panes — the list of workspaces,
 // the page of the workspace in front, and the right sidebar's tab in front.
 const DEFAULT_KEYS = {
-  '<leader>w': { event: 'core:close-tab', desc: '关闭当前标签页' },
-  '<C-h>': { event: 'core:focus-left', desc: '焦点左移一格' },
-  '<C-l>': { event: 'core:focus-right', desc: '焦点右移一格' },
+  '<leader>w': { event: 'core:close-tab', desc: ['窗口', '关标签页'] },
+  '<C-h>': { event: 'core:focus-left', desc: '焦点左移' },
+  '<C-l>': { event: 'core:focus-right', desc: '焦点右移' },
 };
 
 // A previewed page is made of inline scripts and remote assets, which the renderer's CSP forbids; serving it

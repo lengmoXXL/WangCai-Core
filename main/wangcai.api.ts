@@ -26,8 +26,10 @@ export interface PluginSpec {
 /** One bound sequence: where it answers, and the one thing it does — an event, a command named in `commands`, or a
  * script. */
 export type Binding = {
-  /** The line the hint lists after the prefix. */
-  desc?: string;
+  /** The line the hint lists after the prefix. An array holds one line per press, counted back from this binding: the
+   * last is its own, and the ones before name the prefixes above it — `['git', '状态']` on `<leader>gs` names `<leader>g`
+   * as git. Every binding under a prefix contributes, and the hint shows them all. */
+  desc?: string | string[];
   /** Answers wherever the focus is, not only inside a plugin's page. */
   global?: boolean;
 } & ({ event: string; data?: unknown } | { command: string; args?: unknown } | { run(context: KeyContext): unknown; args?: unknown });

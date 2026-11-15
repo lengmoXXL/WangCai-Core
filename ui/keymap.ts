@@ -36,22 +36,56 @@ export function bindWindowKeys(config: KeymapPayload, corner: HTMLElement) {
     ...binding,
     run: () => { void call('key', binding.id).catch(console.error); },
   }));
-  const globals = entries.filter((binding) => binding.scope === 'global');
+  // A global entry answers everywhere; a local one only inside a page, and only when it names no plugin or names this one.
+  const answersIn = (entry: RunnableBinding, plugin?: string) =>
+    entry.scope === 'global' || (plugin !== undefined && (entry.plugin === undefined || entry.plugin === plugin));
+  const globals = entries.filter((entry) => answersIn(entry));
   const globalTries = triesOf(globals, { leader, fields: 'all' });
   // A page's tries are built the first time it is pressed in and kept for the rest of the session.
   const pages = new Map<string, Tries<RunnableBinding>>();
   const pageTries = (plugin: string) => {
     let tries = pages.get(plugin);
     if (!tries) {
-      const local = entries.filter((binding) => binding.scope === 'local' && (binding.plugin === undefined || binding.plugin === plugin));
+      const local = entries.filter((entry) => entry.scope === 'local' && answersIn(entry, plugin));
       tries = triesOf([...globals, ...local], { leader, fields: 'all' });
       pages.set(plugin, tries);
     }
     return tries;
   };
+  // The page whose keys the last press was judged by, which is the page a prefix's lines are read for too.
+  let answering: string | undefined;
   const triesFor = (event: KeyboardEvent) => {
-    const plugin = pageOf(event.target)?.dataset.plugin;
-    return plugin === undefined ? globalTries : pageTries(plugin);
+    answering = pageOf(event.target)?.dataset.plugin;
+    return answering === undefined ? globalTries : pageTries(answering);
+  };
+  // The engine reads a sequence into the labels the hint is told, so `<leader>` and every other spelling land alike.
+  // One binding's trie is a single chain, which is that binding's path.
+  const labelsOf = (keys: string) => {
+    let node = triesOf([{ keys, run: () => {} }], { leader }).outside;
+    const labels: string[] = [];
+    while (node.children.size) {
+      node = node.children.values().next().value!;
+      labels.push(node.label);
+    }
+    return labels;
+  };
+  // Only the prefix lines are kept here, since the binding's own line is drawn on its row. The lines sit at the end of
+  // the path, so a shorter array leaves the levels above it unnamed.
+  const notes = entries.flatMap((entry) => {
+    const lines = Array.isArray(entry.desc) ? entry.desc.slice(0, -1) : [];
+    if (!lines.length) return [];
+    const labels = labelsOf(entry.keys);
+    return lines.flatMap((desc, index) => {
+      const level = labels.length - lines.length + index;
+      return desc && level >= 1 ? [{ path: labels.slice(0, level), desc, entry }] : [];
+    });
+  });
+  /** Every line written for one prefix by a layer that answers here, so `g` can be git and goto at once. */
+  const namesAt = (labels: string[]) => {
+    const path = labels.join(' ');
+    return [...new Set(notes
+      .filter((note) => note.path.join(' ') === path && answersIn(note.entry, answering))
+      .map((note) => note.desc))].join(' · ');
   };
   const hint = document.createElement('div');
   hint.className = 'which-key';
@@ -62,17 +96,25 @@ export function bindWindowKeys(config: KeymapPayload, corner: HTMLElement) {
     const head = document.createElement('div');
     head.className = 'which-key-head';
     head.textContent = labels.join(' ');
+    const names = namesAt(labels);
+    const group = document.createElement('div');
+    group.className = 'which-key-group';
+    group.textContent = names;
+    group.hidden = !names;
     const rows = [...node.children.values()].map((child) => {
       const row = document.createElement('div');
       row.className = 'which-key-row';
       const kbd = document.createElement('kbd');
       kbd.textContent = child.label;
       const text = document.createElement('span');
-      text.textContent = child.binding?.desc ?? child.binding?.keys ?? '';
+      // A key that only leads on is named by the lines written for it as a prefix.
+      const desc = child.binding?.desc;
+      const own = Array.isArray(desc) ? desc[desc.length - 1] : desc;
+      text.textContent = own || namesAt([...labels, child.label]) || child.binding?.keys || '';
       row.append(kbd, text);
       return row;
     });
-    hint.replaceChildren(head, ...rows);
+    hint.replaceChildren(head, group, ...rows);
     hint.hidden = false;
   };
   const onBefore = (event: KeyboardEvent, waiting: boolean) => {

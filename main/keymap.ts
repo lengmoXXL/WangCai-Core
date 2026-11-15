@@ -36,7 +36,7 @@ type KeyScope = 'local' | 'global';
 
 /** One bound sequence as the window gets it: the id it is run by, the keys in Neovim notation, what to draw for it, and
  * where it is allowed to fire. */
-export type KeyBinding = { id: string; keys: string; desc?: string } & ({ scope: 'global' } | {
+export type KeyBinding = { id: string; keys: string; desc?: string | string[] } & ({ scope: 'global' } | {
   scope: 'local';
   /** The page it belongs to; with no plugin named it answers in any page, which is what init.ts writes. */
   plugin?: string;
@@ -57,8 +57,8 @@ export interface Keymap {
 }
 
 type Action = { event: string; data?: unknown } | { run(context: KeyContext): unknown; args?: unknown };
-/** The parts one binding's fields give, whose `desc` is the line a hint draws for it. */
-type Written = { desc?: string; action: Action };
+/** The parts one binding's fields give, whose `desc` is what a hint draws for it. */
+type Written = { desc?: string | string[]; action: Action };
 type Entry = { binding: KeyBinding; action: Action };
 
 // A value written for a binding that is meant to be an object: anything else is read as no fields at all.
@@ -83,7 +83,11 @@ function entryOf(fields: Record<string, unknown>, commands: Record<string, unkno
     : typeof fields.event === 'string' ? { event: fields.event, data: fields.data }
       : undefined;
   if (!action) return undefined;
-  return { desc: typeof fields.desc === 'string' ? fields.desc : undefined, action };
+  // An array is read whole or not at all: dropping one element would move every line to the wrong press.
+  const desc = Array.isArray(fields.desc)
+    ? (fields.desc.every((line) => typeof line === 'string') ? fields.desc as string[] : undefined)
+    : typeof fields.desc === 'string' ? fields.desc : undefined;
+  return { desc, action };
 }
 
 /**
