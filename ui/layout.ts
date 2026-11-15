@@ -3,8 +3,8 @@ import type { Dispose } from '@lengmoxxl/sdk/channel';
 /** Where a menu hangs, in client coordinates. */
 export type MenuAnchor = { left: number; top: number };
 
-// The room the sidebars must leave the main pane: style.css gives the pane a 240px minimum, and the dividers
-// and the window's padding sit on top of that budget.
+// The room the sidebars must leave the main pane, whose style.css minimum is 240px. Only the window's 3px padding sits
+// on top of this budget: both dividers overlap the panes they part, so they take no width. 248 leaves the pane 242px.
 const MAIN_MIN_WIDTH = 248;
 
 /** The two dividers that size the sidebars, dragged or stepped with the arrow keys. */
@@ -18,7 +18,7 @@ export function sidebarDividers(root: HTMLElement, left: HTMLElement, right: HTM
     ['left', left, right, 120], ['right', right, left, 260],
   ] as const) {
     const divider = document.createElement('div');
-    divider.className = `sidebar-divider divider-${side}`;
+    divider.className = 'sidebar-divider';
     divider.setAttribute('role', 'separator');
     divider.setAttribute('aria-label', side === 'left' ? '调整左侧栏宽度' : '调整右侧栏宽度');
     divider.setAttribute('aria-orientation', 'vertical');
