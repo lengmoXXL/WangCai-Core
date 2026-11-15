@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { Machine, WorkspaceActive } from '@lengmoxxl/sdk';
+import type { Machine, Profile, WorkspaceActive } from '@lengmoxxl/sdk';
 import type { TabRecord } from '@lengmoxxl/sdk/channel';
 import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
 import { agentInstaller } from './agent';
@@ -10,6 +10,7 @@ import { keymapOf, type KeyContext } from './keymap';
 import { connectorOf } from './machines';
 import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
+import { mergeTheme } from './theme';
 
 // The keys Core binds by itself. Ctrl+h and Ctrl+l are what walks the window's three panes — the list of workspaces,
 // the page of the workspace in front, and the right sidebar's tab in front.
@@ -35,7 +36,8 @@ const previewDocument = () => `<!doctype html><meta charset="utf-8"><script>pare
  */
 export async function activate(host: CoreHost): Promise<Core> {
   const { storage } = host.paths;
-  const { profile, network } = host.config;
+  const { network } = host.config;
+  const profile: Profile = { theme: mergeTheme(host.config.theme) };
   mkdirSync(storage, { recursive: true });
   const stateDirectory = join(storage, 'data/core');
   mkdirSync(stateDirectory, { recursive: true });

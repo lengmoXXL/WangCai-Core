@@ -1,4 +1,3 @@
-import type { Profile } from '@lengmoxxl/sdk';
 import type { InstallStatus, Network, PluginEntry } from '@lengmoxxl/sdk/bridge';
 import type { KeymapInput } from './keymap';
 
@@ -12,7 +11,7 @@ export interface CoreHost {
   sources: string;
   /** What init.ts holds — the theme, how a run reaches the network, and its keymap — which the shell read out of it.
    * The keymap is optional because a shell older than this contract sends none: what is left is Core's own keys. */
-  config: { profile: Profile; network: Network; keymap?: KeymapInput };
+  config: { theme?: Record<string, unknown>; network: Network; keymap?: KeymapInput };
   /** The plugins the shell installed and this repo loads. */
   plugins(): Promise<PluginEntry[]>;
   /** The rows the plugin page draws — the plugins, and Core itself — as they stand now. */
