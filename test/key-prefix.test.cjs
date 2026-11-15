@@ -53,12 +53,12 @@ test('an array names the prefixes above a binding, and a string still names only
   '<leader>pf': { event: '${probeEvent}', data: '找到了', desc: ['文件', '按名字'] },
   '<leader>np': { event: '${probeEvent}', data: '深处', desc: '深处' },
 }`, [probe], async ({ page, errors, said }) => {
-  // Core names the leader through its own `<leader>w`, and each row below carries the line written for it as a prefix.
+  // Nothing names the leader, so it draws no line of its own; each row below carries the line written for it as a prefix.
   await press(page, 'Control+Space');
   await until(async () => !(await hint(page).isHidden()));
   const root = await readHint(page);
   assert.equal(root.head, 'C-SPC');
-  assert.equal(root.group, '窗口');
+  assert.equal(root.group, '', 'the leader is left unnamed');
   assert.deepEqual(root.rows.find(([key]) => key === 'g'), ['g', 'git']);
   assert.deepEqual(root.rows.find(([key]) => key === 'p'), ['p', '文件']);
   assert.deepEqual(root.rows.find(([key]) => key === 'w'), ['w', '关标签页']);
@@ -85,15 +85,15 @@ test('an array names the prefixes above a binding, and a string still names only
 
 test('a short array counts back from the binding, so it names only the nearest prefixes', { timeout: 180000 }, () => withKeys('wangcai-prefix-depth', `{
   '<leader>hw': { event: '${probeEvent}', data: '问候了', desc: ['示例', 'Hello World'] },
-  '<leader>bf': { event: '${probeEvent}', data: 'fork 了', desc: ['窗口', 'worktree', 'fork'] },
+  '<leader>bf': { event: '${probeEvent}', data: 'fork 了', desc: ['根', 'worktree', 'fork'] },
 }`, [probe], async ({ page, errors, said }) => {
   await press(page, 'Control+Space');
   await until(async () => !(await hint(page).isHidden()));
   const root = await readHint(page);
-  // Two lines on a three-press binding name `<leader>h` and the binding, leaving the leader to Core's own line.
-  assert.equal(root.group, '窗口');
+  // Two lines on a three-press binding name `<leader>h` and the binding, leaving the leader to the other binding.
+  assert.equal(root.group, '根');
   assert.deepEqual(root.rows.find(([key]) => key === 'h'), ['h', '示例']);
-  // Three lines name every press, so this one names the leader too, alongside Core's line for it.
+  // Three lines name every press, so this one reaches the leader as well.
   assert.deepEqual(root.rows.find(([key]) => key === 'b'), ['b', 'worktree']);
 
   await press(page, 'h');

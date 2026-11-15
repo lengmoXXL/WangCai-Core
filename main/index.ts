@@ -14,7 +14,7 @@ import { syncSources } from './resources';
 // The keys Core binds by itself. Ctrl+h and Ctrl+l are what walks the window's three panes — the list of workspaces,
 // the page of the workspace in front, and the right sidebar's tab in front.
 const DEFAULT_KEYS = {
-  '<leader>w': { event: 'core:close-tab', desc: ['窗口', '关标签页'] },
+  '<leader>w': { event: 'core:close-tab', desc: '关标签页' },
   '<C-h>': { event: 'core:focus-left', desc: '焦点左移' },
   '<C-l>': { event: 'core:focus-right', desc: '焦点右移' },
 };
