@@ -29,7 +29,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspaces::-webkit-scrollbar { display: none; }
 .workspace { display: flex; align-items: center; height: 22px; padding: 0 5px; font-size: 12px; cursor: pointer; }
 /* The mark is a shadow rather than a border, so choosing a row moves none of its content. */
-.workspace.selected { background: var(--wc-background); box-shadow: inset 2px 0 0 var(--wc-accent); }
+.workspace.selected { background: var(--wc-overlay); box-shadow: inset 2px 0 0 var(--wc-accent); }
 /* The slot keeps its width while it is empty, so a row that starts working does not shift its name. */
 .workspace .state { flex: 0 0 12px; color: var(--wc-accent); font-size: 11px; line-height: 1; }
 .workspace[data-state=finished] .state { color: var(--wc-green); }
@@ -64,7 +64,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace-line[data-drop=line]::after { background: var(--wc-accent); }
 /* The cursor of the list. Ctrl+h sets it from the main process, so the browser does not count that press as keyboard
    focus and :focus-visible stays off; the list shows the cursor whenever it holds the keys. */
-.workspace:focus, .workspace-group-bar:focus { outline: 2px solid var(--wc-accent); outline-offset: -2px; }
+.workspace:focus, .workspace-group-bar:focus { outline: 1px solid var(--wc-accent); outline-offset: -1px; }
 .workspace-group-bar .chevron { flex: 0 0 12px; height: 12px; fill: currentColor; opacity: .8; }
 .workspace-group:has(.workspace-group-rows[hidden]) .chevron { transform: rotate(-90deg); }
 /* A bar in the tab strip would take its height out of the tabs, so the strip scrolls with no bar of its own. */
