@@ -3,12 +3,12 @@ import type { Theme } from '@lengmoxxl/sdk';
 // The one default theme the whole app reads: the shell writes these out as --wc-* and every plugin, the editor's
 // markdown preview included, takes its colours from the same tokens. init.ts may override any of them.
 export const DEFAULT_THEME: Theme = {
-  background: '#121314',
+  background: '#191a1b',
   foreground: '#dce3eb',
   cursor: '#9bc7bc',
   selection: '#35534e',
-  surface: '#191a1b',
-  overlay: '#2c2d2e',
+  surface: '#1f2021',
+  overlay: '#303132',
   border: '#333536',
   muted: '#8b98a6',
   accent: '#3994bc',
