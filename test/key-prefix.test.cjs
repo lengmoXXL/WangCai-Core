@@ -6,6 +6,9 @@ const { until, withHome } = require('@lengmoxxl/wangcai-testkit');
 const { plugin, press, watch } = require('./core-ui.cjs');
 
 // The lines the hint draws for the prefixes above a binding; `Binding.desc` describes how a `desc` array writes them.
+//
+// A sequence is pressed whole, and Escape leaves one prefix before the next is entered: the prefix waits TIMEOUT for its
+// next key, so a read between two presses can let it expire on a loaded machine, and the rest goes to the page instead.
 
 const probeEvent = 'prefix-probe';
 const probeUi = `export function mount(container, context) {
@@ -65,14 +68,14 @@ test('an array names the prefixes above a binding, and a string still names only
   // A string names only its own binding, so the prefix above it stays unnamed and its row is blank.
   assert.deepEqual(root.rows.find(([key]) => key === 'n'), ['n', '']);
 
-  await press(page, 'g');
+  await press(page, 'Escape', 'Control+Space', 'g');
   await until(async () => (await readHint(page)).head === 'C-SPC g');
   const git = await readHint(page);
   assert.equal(git.group, 'git');
   assert.deepEqual(git.rows, [['a', '暂存'], ['c', '提交']]);
 
   // The lines are labels: the key under them still runs.
-  await press(page, 'a');
+  await press(page, 'Escape', 'Control+Space', 'g', 'a');
   await said('暂存了');
   await until(() => hint(page).isHidden());
 
@@ -96,12 +99,12 @@ test('a short array counts back from the binding, so it names only the nearest p
   // Three lines name every press, so this one reaches the leader as well.
   assert.deepEqual(root.rows.find(([key]) => key === 'b'), ['b', 'worktree']);
 
-  await press(page, 'h');
+  await press(page, 'Escape', 'Control+Space', 'h');
   await until(async () => (await readHint(page)).head === 'C-SPC h');
   const hello = await readHint(page);
   assert.equal(hello.group, '示例');
   assert.deepEqual(hello.rows, [['w', 'Hello World']]);
-  await press(page, 'w');
+  await press(page, 'Escape', 'Control+Space', 'h', 'w');
   await said('问候了');
   assert.deepEqual(errors, []);
 }));
@@ -116,7 +119,7 @@ test('every layer that names one prefix is shown, spelled either way, and only w
   const both = await readHint(page);
   assert.equal(both.group, 'git · goto');
   assert.deepEqual(both.rows, [['t', '状态'], ['g', '第一行']]);
-  await press(page, 'g');
+  await press(page, 'Escape', 'Control+Space', 'g', 'g');
   await said('到顶了');
 
   // The plugin's line belongs to its own page: another page sees only the line init.ts wrote.
