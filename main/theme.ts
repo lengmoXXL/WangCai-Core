@@ -8,7 +8,7 @@ export const DEFAULT_THEME: Theme = {
   cursor: '#aeafad',
   selection: '#264f78',
   surface: '#1f2021',
-  overlay: '#303132',
+  overlay: '#20242c',
   border: '#333536',
   muted: '#8b98a6',
   accent: '#3994bc',
