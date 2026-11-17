@@ -20,7 +20,7 @@ export const DEFAULT_THEME: Theme = {
   magenta: '#c586c0',
   cyan: '#4ec9b0',
   white: '#d4d4d4',
-  brightBlack: '#808080',
+  brightBlack: '#3b4650',
   brightRed: '#f44747',
   brightGreen: '#6a9955',
   brightYellow: '#dcdcaa',
