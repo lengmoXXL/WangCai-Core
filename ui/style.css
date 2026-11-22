@@ -5,10 +5,11 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
    chrome macOS draws. */
 :root { --wc-chrome: 36px; }
 .desktop-main, .sidebar-left, .sidebar-right { overflow: hidden; }
-/* The tab pane is the same workspace surface as the page beside it, so it alone takes no corner. */
+/* The block is the page and the tab pane, so it starts at the page and the list sits outside it. A maximized window
+   rounds no corner of its own, so the far end closes and rounds itself rather than borrowing the window's. */
 .desktop-main, .sidebar-left { border-radius: var(--wc-pane-corner) 0 0 var(--wc-pane-corner); }
-/* The window's own edge closes the far side: a line there would only double it across the shell's 3px padding. */
 .desktop-main, .sidebar-right { border: var(--wc-pane-line); border-right: 0; }
+.sidebar-right:not([hidden]), #root:has(.sidebar-right[hidden]) .desktop-main { border-right: var(--wc-pane-line); border-top-right-radius: var(--wc-pane-corner); border-bottom-right-radius: var(--wc-pane-corner); }
 .desktop-main { display: flex; position: relative; flex: 1; min-width: 240px; }
 /* The report covers the corner of the page rather than taking a row above it: the page is the plugin's, and a
    download should not change the height it was drawn at. */
