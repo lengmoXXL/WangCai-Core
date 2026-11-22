@@ -1,4 +1,4 @@
-import type { Profile } from '@lengmoxxl/sdk';
+import type { Profile, Theme } from '@lengmoxxl/sdk';
 import type { Dispose, TabRecord, UiContext } from '@lengmoxxl/sdk/channel';
 import { fullscreenTopic, previewMessage, previewUrl, uiFont, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import { agentDownload } from './agent';
@@ -25,10 +25,15 @@ async function start() {
   // The theme comes from the shell, not from a plugin, so it is set before anything is drawn:
   // the plugin page is styled from its first moment even when a plugin still has to be cloned and built.
   const profile = await call<Profile>('config');
-  for (const [token, color] of Object.entries(profile.theme)) document.documentElement.style.setProperty(`--wc-${token}`, color);
+  const applyTheme = (theme: Theme) => {
+    for (const [token, color] of Object.entries(theme)) document.documentElement.style.setProperty(`--wc-${token}`, color);
+    // The browser's own widgets read the scheme rather than the tokens, so it is derived from the background again.
+    const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+/g)!.map(Number);
+    document.documentElement.style.colorScheme = r * 299 + g * 587 + b * 114 > 128_000 ? 'light' : 'dark';
+  };
+  applyTheme(profile.theme);
+  disposers.push(window.wangcai.subscribe('theme', (theme) => applyTheme(theme as Theme)));
   document.documentElement.style.setProperty('--wc-font', uiFont);
-  const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+/g)!.map(Number);
-  document.documentElement.style.colorScheme = r * 299 + g * 587 + b * 114 > 128_000 ? 'light' : 'dark';
   // The window is asked once per load, and followed for every change after that.
   const applyChrome = (fullscreen: unknown) => {
     if (fullscreen === true) document.documentElement.style.setProperty('--wc-chrome', '0px');

@@ -10,15 +10,7 @@ import { keymapOf, type KeyContext } from './keymap';
 import { connectorOf } from './machines';
 import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
-import { mergeTheme } from './theme';
-
-// The keys Core binds by itself. Ctrl+h and Ctrl+l are what walks the window's three panes — the list of workspaces,
-// the page of the workspace in front, and the right sidebar's tab in front.
-const DEFAULT_KEYS = {
-  '<leader>w': { event: 'core:close-tab', desc: '关标签页' },
-  '<C-h>': { event: 'core:focus-left', desc: '焦点左移' },
-  '<C-l>': { event: 'core:focus-right', desc: '焦点右移' },
-};
+import { themesOf } from './theme';
 
 // A previewed page is made of inline scripts and remote assets, which the renderer's CSP forbids; serving it
 // from its own scheme gives it a policy of its own, and the sandboxed frame keeps the page off the shell.
@@ -37,7 +29,6 @@ const previewDocument = () => `<!doctype html><meta charset="utf-8"><script>pare
 export async function activate(host: CoreHost): Promise<Core> {
   const { storage } = host.paths;
   const { network } = host.config;
-  const profile: Profile = { theme: mergeTheme(host.config.theme) };
   mkdirSync(storage, { recursive: true });
   const stateDirectory = join(storage, 'data/core');
   mkdirSync(stateDirectory, { recursive: true });
@@ -87,14 +78,18 @@ export async function activate(host: CoreHost): Promise<Core> {
   host.protocol.handle(previewScheme, (request) => request.url === previewUrl
     ? new Response(previewDocument(), { headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': PREVIEW_CSP } })
     : new Response('Not found', { status: 404 }));
-  // A list this repo keeps in a file of its own: read back as it was written, and replaced in one step.
-  const readList = <T>(path: string) => existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T[] : [];
-  const writeList = <T>(path: string, list: T[]) => {
-    writeFileSync(`${path}.tmp`, JSON.stringify(list, null, 2));
+  // State this repo keeps in a file of its own: read back as it was written, and replaced in one step.
+  const readJson = <T>(path: string, fallback: T): T => existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T : fallback;
+  const writeJson = (path: string, value: unknown) => {
+    writeFileSync(`${path}.tmp`, JSON.stringify(value, null, 2));
     renameSync(`${path}.tmp`, path);
   };
   const tabsPath = join(stateDirectory, 'tabs.json');
   const groupsPath = join(stateDirectory, 'groups.json');
+  const themePath = join(stateDirectory, 'theme.json');
+  const themes = themesOf(host.config.theme);
+  const chosen = readJson<string>(themePath, '');
+  const profile: Profile = { theme: themes[chosen] ?? Object.values(themes)[0] };
   // The window and the keymap ask for the same two calls.
   const publish = async (event: string, data?: unknown) => (await loaded()).publish(event, data);
   const request = async (id: string, method: string, params?: unknown) => (await loaded()).request(id, method, params);
@@ -107,6 +102,23 @@ export async function activate(host: CoreHost): Promise<Core> {
     asking.set(id, (value) => resolve(typeof value === 'string' ? value : undefined));
     host.send('core:prompt', { id, kind, ...options });
   });
+  // The window and every plugin already mounted take the new colours from this one broadcast; a plugin mounted later
+  // reads them out of the profile, which is why it is the profile the switch writes rather than a copy.
+  const switchTheme = async () => {
+    const name = await ask('pick', { title: '主题', items: Object.keys(themes) });
+    if (!name || !themes[name]) return;
+    profile.theme = themes[name];
+    writeJson(themePath, name);
+    broadcast('theme', profile.theme);
+  };
+  // The keys Core binds by itself. Ctrl+h and Ctrl+l are what walks the window's three panes — the list of workspaces,
+  // the page of the workspace in front, and the right sidebar's tab in front.
+  const defaultKeys = {
+    '<leader>w': { event: 'core:close-tab', desc: '关标签页' },
+    '<C-h>': { event: 'core:focus-left', desc: '焦点左移' },
+    '<C-l>': { event: 'core:focus-right', desc: '焦点右移' },
+    '<leader>ut': { run: switchTheme, desc: ['界面', '主题'] },
+  };
   const exec: KeyContext['exec'] = async (machine, program, args, options = {}) => {
     const node = await connectMachine(machine ?? {});
     try {
@@ -121,7 +133,7 @@ export async function activate(host: CoreHost): Promise<Core> {
     profile, publish, request, send: host.send, open: host.openExternal,
     machine: () => front, exec, notify: (message) => host.send('core:notify', message),
     input: (options) => ask('input', options), pick: (options) => ask('pick', options),
-  }, DEFAULT_KEYS);
+  }, defaultKeys);
   const methods: Record<string, (...args: any[]) => unknown> = {
     publish,
     plugins: async () => (await loaded()).plugins,
@@ -143,10 +155,10 @@ export async function activate(host: CoreHost): Promise<Core> {
       if (previous) await (await previous).dispose();
       host.reload();
     },
-    tabs: () => readList<TabRecord>(tabsPath),
-    'save-tabs': (tabs: TabRecord[]) => writeList(tabsPath, tabs),
-    groups: () => readList<WorkspaceGroup>(groupsPath),
-    'save-groups': (groups: WorkspaceGroup[]) => writeList(groupsPath, groups),
+    tabs: () => readJson<TabRecord[]>(tabsPath, []),
+    'save-tabs': (tabs: TabRecord[]) => writeJson(tabsPath, tabs),
+    groups: () => readJson<WorkspaceGroup[]>(groupsPath, []),
+    'save-groups': (groups: WorkspaceGroup[]) => writeJson(groupsPath, groups),
     open: host.openExternal,
   };
   return {

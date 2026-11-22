@@ -36,7 +36,10 @@ export type Binding = {
 
 /** What `init.ts` exports: the theme and network a run reads, the plugins it lists, and the keymap Core runs. */
 export interface Config {
-  theme?: Partial<Theme>;
+  /** The themes the window may switch between, by name. `WangCai` and `GitHub` ship; naming one of them patches it,
+   * and any other name adds a theme. An added theme starts from `WangCai`, so one meant to be light names every token
+   * it wants light. `<leader>ut` picks between them, and the choice is remembered. */
+  theme?: Record<string, Partial<Theme>>;
   network?: Network;
   /** The plugins the window draws workspaces for. */
   workspaces?: PluginSpec[];
