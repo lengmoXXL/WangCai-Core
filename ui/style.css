@@ -1,17 +1,28 @@
 html, body, #root { margin: 0; width: 100%; height: 100%; }
 body { background: var(--wc-background); color: var(--wc-foreground); font-family: var(--wc-font); }
-#root { display: flex; overflow: hidden; padding: 3px; box-sizing: border-box; --wc-pane-corner: 8px; --wc-pane-line: 1px solid var(--wc-border); }
+#root { display: flex; overflow: hidden; padding: 3px; box-sizing: border-box; --wc-pane-corner: 8px; --wc-pane-border-width: 1px; }
 /* Room for the window buttons above the shell's first row; a full screen says 0px, since CSS cannot see the
    chrome macOS draws. */
 :root { --wc-chrome: 36px; }
 .desktop-main, .sidebar-left, .sidebar-right { overflow: hidden; }
-/* Maximized windows have square corners, so the shell draws its own rounded edges. */
-.desktop-main, .sidebar-left { border-radius: var(--wc-pane-corner) 0 0 var(--wc-pane-corner); }
-.desktop-main { display: flex; position: relative; flex: 1; min-width: 240px; border: var(--wc-pane-line); border-right: 0; }
-#root:has(.sidebar-right[hidden]) .desktop-main { border-right: var(--wc-pane-line); border-top-right-radius: var(--wc-pane-corner); border-bottom-right-radius: var(--wc-pane-corner); }
+/* Chromium drops scroll frames when rounded corners clip terminal or editor content. */
+.desktop-main, .sidebar-right { position: relative; padding: var(--wc-pane-border-width); }
+.desktop-main::after, .sidebar-right::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  border: var(--wc-pane-border-width) solid var(--wc-border); box-shadow: 0 0 0 var(--wc-pane-corner) var(--wc-background);
+}
+.plugin, .sidebar-content { isolation: isolate; }
+.sidebar-left, .desktop-main::after { border-radius: var(--wc-pane-corner) 0 0 var(--wc-pane-corner); }
+.sidebar-right::after { border-radius: 0 var(--wc-pane-corner) var(--wc-pane-corner) 0; }
+.desktop-main { display: flex; flex: 1; min-width: 240px; --wc-main-end-width: 0px; padding-right: var(--wc-main-end-width); }
+.desktop-main::after { border-right-width: var(--wc-main-end-width); }
+#root:has(.sidebar-right[hidden]) .desktop-main {
+  --wc-main-end-width: var(--wc-pane-border-width);
+  &::after { border-radius: var(--wc-pane-corner); }
+}
 /* The report covers the corner of the page rather than taking a row above it: the page is the plugin's, and a
    download should not change the height it was drawn at. */
-.agent-download { position: absolute; top: 8px; right: 12px; z-index: 2; display: flex; align-items: center; gap: 8px; max-width: 70%; padding: 3px 8px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-overlay); color: var(--wc-muted); font-size: 11px; white-space: nowrap; }
+.agent-download { position: absolute; top: calc(8px + var(--wc-pane-border-width)); right: calc(12px + var(--wc-main-end-width)); z-index: 2; display: flex; align-items: center; gap: 8px; max-width: 70%; padding: 3px 8px; border: 1px solid var(--wc-border); border-radius: 6px; background: var(--wc-overlay); color: var(--wc-muted); font-size: 11px; white-space: nowrap; }
 .agent-download[hidden] { display: none; }
 .agent-download[data-stage=failed] { color: var(--wc-red); }
 .agent-download .reason { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--wc-muted); }
@@ -66,14 +77,7 @@ body { background: var(--wc-background); color: var(--wc-foreground); font-famil
 .workspace:focus, .workspace-group-bar:focus { outline: 1px solid var(--wc-accent); outline-offset: -1px; }
 .workspace-group-bar .chevron { flex: 0 0 12px; height: 12px; fill: currentColor; opacity: .8; }
 .workspace-group:has(.workspace-group-rows[hidden]) .chevron { transform: rotate(-90deg); }
-/* Chromium drops scroll frames when rounded corners clip a focused editor. */
-.sidebar-right { position: relative; padding: 1px; }
-.sidebar-right::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  border: var(--wc-pane-line); border-radius: 0 var(--wc-pane-corner) var(--wc-pane-corner) 0;
-  box-shadow: 0 0 0 var(--wc-pane-corner) var(--wc-background);
-}
-.sidebar-content { flex: 1; min-height: 0; isolation: isolate; }
+.sidebar-content { flex: 1; min-height: 0; }
 .sidebar-panel { height: 100%; min-width: 0; overflow: hidden; }
 /* A bar in the tab strip would take its height out of the tabs, so the strip scrolls with no bar of its own. */
 .sidebar-tabs::-webkit-scrollbar { display: none; }
