@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { compileFunction } from 'node:vm';
-import type { Profile } from '@lengmoxxl/sdk';
+import { workspaceAlias, type Profile } from '@lengmoxxl/sdk';
 import type { Dispose, MainContext } from '@lengmoxxl/sdk/channel';
 import { pluginsUrl, type PluginEntry, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import type { Keymap } from './keymap';
@@ -38,7 +38,19 @@ export async function loadPlugins(options: {
   const handlers = new Map<string, Map<string, (params: any) => unknown>>();
   const disposers: Dispose[] = [];
   const channels = new Set<Map<string, Set<(data: any) => void | Promise<void>>>>();
-  async function publish(event: string, data: unknown) {
+  // The provider of the workspace in front, which the reserved alias id resolves to.
+  let frontProvider: string | undefined;
+  async function requestPlugin(id: string, method: string, params?: unknown) {
+    if (id === workspaceAlias) {
+      if (!frontProvider) throw new Error('No active workspace');
+      id = frontProvider;
+    }
+    const handler = handlers.get(id)?.get(method);
+    if (!handler) throw new Error(`Unknown plugin method: ${id}/${method}`);
+    return handler(params);
+  }
+  async function publish(event: string, data: unknown, source?: string) {
+    if (event === 'workspace:active') frontProvider = data ? source : undefined;
     broadcast(event, data);
     await Promise.all([...channels].flatMap((subscriptions) => [...subscriptions.get(event) ?? []].map(async (callback) => {
       try { await callback(data); } catch (error) { console.error(`Plugin event ${event}:`, error); }
@@ -72,8 +84,9 @@ export async function loadPlugins(options: {
       mkdirSync(dataDirectory, { recursive: true });
       const context: MainContext = {
         connect,
+        request: requestPlugin as MainContext['request'],
         global: {
-          publish,
+          publish: (topic, data) => publish(topic, data, id),
           subscribe(topic, callback) {
             let callbacks = subscriptions.get(topic);
             if (!callbacks) subscriptions.set(topic, callbacks = new Set());
@@ -108,11 +121,7 @@ export async function loadPlugins(options: {
   }
   return {
     plugins: infos, directories, publish,
-    request(id: string, method: string, params: unknown) {
-      const handler = handlers.get(id)?.get(method);
-      if (!handler) throw new Error(`Unknown plugin method: ${id}/${method}`);
-      return handler(params);
-    },
+    request: requestPlugin,
     async dispose() {
       for (const dispose of disposers.reverse()) {
         try { await dispose(); } catch (error) { console.error('Plugin cleanup:', error); }
