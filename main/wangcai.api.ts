@@ -1,8 +1,8 @@
 /**
- * The API `init.ts` is written against, as one module an editor can resolve: the shell writes a tsconfig beside that
+ * The API `init.ts` is written against, as one module an editor can resolve: Core writes a tsconfig beside that
  * file pointing `wangcai.api` at this one in the sources copy, so `import type { Config } from 'wangcai.api'` and
  * `export default { … } satisfies Config` give the config its symbols — every field, and every call a binding's script
- * gets. Types only: nothing here runs, and the import is stripped when the shell loads the file.
+ * gets. Node strips the type import when it loads the file.
  */
 import type { Theme } from '@lengmoxxl/sdk';
 import type { Network } from '@lengmoxxl/sdk/bridge';
@@ -11,6 +11,15 @@ import type { KeyContext } from './keymap';
 export type { KeyContext, CommandResult } from './keymap';
 export type { Machine, Profile, Theme } from '@lengmoxxl/sdk';
 export type { Network } from '@lengmoxxl/sdk/bridge';
+
+export interface FontConfig {
+  /** A CSS font-family list. */
+  family?: string;
+  /** The text size in pixels. */
+  size?: number;
+  /** A multiple of the text size. */
+  lineHeight?: number;
+}
 
 /** One plugin as `workspaces` or `tabs` names it: where it comes from, and what it is configured with. A relative
  * `directory` is read from the directory init.ts sits in, and an entry that names no source is the official repository
@@ -34,12 +43,14 @@ export type Binding = {
   global?: boolean;
 } & ({ event: string; data?: unknown } | { command: string; args?: unknown } | { run(context: KeyContext): unknown; args?: unknown });
 
-/** What `init.ts` exports: the theme and network a run reads, the plugins it lists, and the keymap Core runs. */
+/** The appearance, network, plugins and keymap exported from `init.ts`. */
 export interface Config {
   /** The themes the window may switch between, by name. `WangCai` and `GitHub` ship; naming one of them patches it,
    * and any other name adds a theme. An added theme starts from `WangCai`, so one meant to be light names every token
    * it wants light. `<leader>ut` picks between them, and the choice is remembered. */
   theme?: Record<string, Partial<Theme>>;
+  /** Defaults for the window and the font fields each plugin declares. A plugin can override them in `config.font`. */
+  font?: FontConfig;
   network?: Network;
   /** The plugins the window draws workspaces for. */
   workspaces?: PluginSpec[];

@@ -1,8 +1,7 @@
 # 旺财 Core
 
-旺财的业务内核。**壳**（[WangCai](https://github.com/lengmoXXL/WangCai)）只负责窗口、打包、更新 Core，
-以及读 `init.ts` 把插件装好；工作区协议、机器连接和界面都在这里。因此换业务逻辑不必重新发布：壳可以
-从仓库拉取本仓库重新构建，装到数据目录里再启动。
+旺财的业务内核负责加载 `init.ts`、工作区协议、机器连接和界面。**壳**负责窗口、打包、更新 Core，
+并按 Core 给出的清单安装插件。壳可以从仓库重新构建 Core，装到数据目录后重启。 [WangCai](https://github.com/lengmoXXL/WangCai)
 
 ## 快捷键
 

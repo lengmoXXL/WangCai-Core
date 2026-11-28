@@ -11,6 +11,7 @@ import { prompts } from './prompt';
 import { sidebarTabs } from './tabs';
 import { workspaceSidebar } from './workspace-sidebar';
 import type { KeymapPayload } from '../main/keymap';
+import type { FontConfig } from '../main/wangcai.api';
 import './style.css';
 
 const root = document.getElementById('root')!;
@@ -22,9 +23,11 @@ window.addEventListener('beforeunload', () => {
 });
 
 async function start() {
-  // The theme comes from the shell, not from a plugin, so it is set before anything is drawn:
-  // the plugin page is styled from its first moment even when a plugin still has to be cloned and built.
-  const profile = await call<Profile>('config');
+  // Set the window's appearance before plugins load, so the install page is styled while they are still building.
+  const { font = {}, ...profile } = await call<Profile & { font?: FontConfig }>('config');
+  document.documentElement.style.setProperty('--wc-font', font.family ?? uiFont);
+  if (font.size !== undefined) document.body.style.fontSize = `${font.size}px`;
+  if (font.lineHeight !== undefined) document.body.style.lineHeight = String(font.lineHeight);
   const applyTheme = (theme: Theme) => {
     for (const [token, color] of Object.entries(theme)) document.documentElement.style.setProperty(`--wc-${token}`, color);
     // The browser's own widgets read the scheme rather than the tokens, so it is derived from the background again.
@@ -33,7 +36,6 @@ async function start() {
   };
   applyTheme(profile.theme);
   disposers.push(window.wangcai.subscribe('theme', (theme) => applyTheme(theme as Theme)));
-  document.documentElement.style.setProperty('--wc-font', uiFont);
   // The window is asked once per load, and followed for every change after that.
   const applyChrome = (fullscreen: unknown) => {
     if (fullscreen === true) document.documentElement.style.setProperty('--wc-chrome', '0px');

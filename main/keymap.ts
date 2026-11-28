@@ -1,6 +1,6 @@
 import type { Machine, Profile } from '@lengmoxxl/sdk';
 
-/** What init.ts holds under `leader`, `timeout`, `keys` and `commands`, as the shell read it out of the file.
+/** What init.ts holds under `leader`, `timeout`, `keys` and `commands`.
  * The values are the user's own code, so nothing here is trusted beyond its shape. */
 export interface KeymapInput { leader?: unknown; timeout?: unknown; keys?: unknown; commands?: unknown }
 

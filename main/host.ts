@@ -1,19 +1,15 @@
-import type { InstallStatus, Network, PluginEntry } from '@lengmoxxl/sdk/bridge';
-import type { KeymapInput } from './keymap';
+import type { InstallStatus, PluginEntry } from '@lengmoxxl/sdk/bridge';
 
 /** What the shell lends Core: where a run keeps its files, its own version and sources, the Electron
- * capabilities Core answers through, and the config and plugins the shell read and installed for it. */
+ * capabilities Core answers through, and the installed plugins for this run. */
 export interface CoreHost {
   paths: { storage: string };
   /** The shell's version, which is what the snapshot an agent reads is stamped with. */
   version: string;
   /** Where the shell's own sources are shipped: what that snapshot is copied from. */
   sources: string;
-  /** What init.ts holds — the theme, how a run reaches the network, and its keymap — which the shell read out of it.
-   * The keymap is optional because a shell older than this contract sends none: what is left is Core's own keys. */
-  config: { theme?: Record<string, unknown>; network: Network; keymap?: KeymapInput };
-  /** The plugins the shell installed and this repo loads. */
-  plugins(): Promise<PluginEntry[]>;
+  /** The installed subset of the plugin sources Core requested. */
+  plugins(): Promise<Pick<PluginEntry, 'id' | 'directory'>[]>;
   /** The rows the plugin page draws — the plugins, and Core itself — as they stand now. */
   statuses(): InstallStatus[];
   /** Installs or updates the rows these ids name, Core included; answers whether anything was built anew. */

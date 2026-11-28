@@ -3,14 +3,16 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Machine, Profile, WorkspaceActive } from '@lengmoxxl/sdk';
 import type { TabRecord } from '@lengmoxxl/sdk/channel';
-import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
+import { contractVersion, pluginScheme, pluginsHost, previewMessage, previewScheme, previewUrl, uiFont, type Network, type PluginEntry, type WorkspaceGroup } from '@lengmoxxl/sdk/bridge';
 import { agentInstaller } from './agent';
+import { loadConfig, type CoreConfig } from './config';
 import type { Core, CoreHost } from './host';
 import { keymapOf, type KeyContext } from './keymap';
 import { connectorOf } from './machines';
 import { loadPlugins } from './plugins';
 import { syncSources } from './resources';
 import { themesOf } from './theme';
+import type { FontConfig } from './wangcai.api';
 
 // A previewed page is made of inline scripts and remote assets, which the renderer's CSP forbids; serving it
 // from its own scheme gives it a policy of its own, and the sandboxed frame keeps the page off the shell.
@@ -18,17 +20,50 @@ const PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline' http: https:
 // Writing the page into this document, rather than setting innerHTML, is what runs its scripts. The base font
 // keeps an unstyled page readable next to the editor that the same file shows in source form; document.open()
 // discards the document, so the style goes in afterwards and sits first, where the page's own rules override it.
-const previewDocument = () => `<!doctype html><meta charset="utf-8"><script>parent.postMessage('${previewMessage}', '*'); addEventListener('message', (event) => { document.open(); document.write(event.data); document.close(); const base = document.createElement('style'); base.textContent = ${JSON.stringify(`html { font-family: ${uiFont}; font-size: 13px; line-height: 1.6; }`)}; document.head.prepend(base); });</script>`;
+const previewDocument = ({ family = uiFont, size = 13, lineHeight = 1.6 }: FontConfig = {}) => {
+  // A font family is serialized inside a script element, where a closing tag would end the script.
+  const fontStyle = JSON.stringify({ fontFamily: family, fontSize: `${size}px`, lineHeight: String(lineHeight) }).replaceAll('<', '\\u003c');
+  return `<!doctype html><meta charset="utf-8"><script>
+    parent.postMessage('${previewMessage}', '*');
+    addEventListener('message', (event) => {
+      document.open();
+      document.write(event.data);
+      document.close();
+      const base = document.createElement('style');
+      base.textContent = 'html {}';
+      document.head.prepend(base);
+      if (base.sheet) Object.assign(base.sheet.cssRules[0].style, ${fontStyle});
+    });
+  </script>`;
+};
 
-/**
- * The business the shell only carries: the machines a window works on, the workspaces and tabs it shows, the
- * protocols it serves, and the methods it answers by name. The config init.ts holds and the plugins it lists are
- * the shell's to read and install, and arrive through the host. Everything Electron owns — the window, the
- * session, the system — is asked for through the host, so this runs against any shell that lends it the same.
- */
-export async function activate(host: CoreHost): Promise<Core> {
+export async function prepare(paths: { config: string; storage: string }, networkOf: (value: unknown) => Network) {
+  const { config, plugins } = await loadConfig(paths, networkOf);
+  return {
+    network: config.network,
+    plugins: Array.from(plugins.values(), ({ id, repo, commit, directory }) => ({ id, repo, commit, directory })),
+    activate: (host: CoreHost) => activate({
+      ...host,
+      config,
+      plugins: async () => (await host.plugins()).map(({ id, directory }) => {
+        const spec = plugins.get(id)!;
+        return { id, directory, workspaces: spec.workspaces, config: spec.config };
+      }),
+    }),
+  };
+}
+
+// Earlier shells call activate with the configuration they loaded themselves.
+export async function activate(host: Omit<CoreHost, 'plugins'> & { config: CoreConfig; plugins(): Promise<PluginEntry[]> }): Promise<Core> {
   const { storage } = host.paths;
-  const { network } = host.config;
+  const { network, font: fontInput } = host.config;
+  const { family, size, lineHeight } = (fontInput ?? {}) as Record<string, unknown>;
+  const fontFields: FontConfig = {};
+  const fontFamily = typeof family === 'string' ? family.trim() : '';
+  if (fontFamily) fontFields.family = fontFamily;
+  if (typeof size === 'number' && Number.isFinite(size) && size > 0) fontFields.size = size;
+  if (typeof lineHeight === 'number' && Number.isFinite(lineHeight) && lineHeight > 0) fontFields.lineHeight = lineHeight;
+  const font = Object.keys(fontFields).length ? fontFields : undefined;
   mkdirSync(storage, { recursive: true });
   const stateDirectory = join(storage, 'data/core');
   mkdirSync(stateDirectory, { recursive: true });
@@ -55,7 +90,7 @@ export async function activate(host: CoreHost): Promise<Core> {
   const loaded = () => loading ??= host.plugins().then((plugins) => loadPlugins({
     storageDirectory: storage,
     connect: connectMachine,
-    profile, plugins, broadcast, keymap,
+    profile, font, plugins, broadcast, keymap,
   }));
   // Serves a loaded plugin's files to the renderer; the directories exist once loading is done.
   host.protocol.handle(pluginScheme, async (request) => {
@@ -76,7 +111,7 @@ export async function activate(host: CoreHost): Promise<Core> {
     return new Response(response.body, { status: response.status, headers });
   });
   host.protocol.handle(previewScheme, (request) => request.url === previewUrl
-    ? new Response(previewDocument(), { headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': PREVIEW_CSP } })
+    ? new Response(previewDocument(font), { headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': PREVIEW_CSP } })
     : new Response('Not found', { status: 404 }));
   // State this repo keeps in a file of its own: read back as it was written, and replaced in one step.
   const readJson = <T>(path: string, fallback: T): T => existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T : fallback;
@@ -138,7 +173,7 @@ export async function activate(host: CoreHost): Promise<Core> {
     publish,
     plugins: async () => (await loaded()).plugins,
     request,
-    config: () => profile,
+    config: () => font ? { ...profile, font } : profile,
     keymap: keymap.payload,
     key: keymap.run,
     'prompt-answer': (id: number, value: unknown) => { asking.get(id)?.(value); asking.delete(id); },

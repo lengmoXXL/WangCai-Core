@@ -6,33 +6,38 @@ import { workspaceAlias, type Profile } from '@lengmoxxl/sdk';
 import type { Dispose, MainContext } from '@lengmoxxl/sdk/channel';
 import { pluginsUrl, type PluginEntry, type PluginInfo } from '@lengmoxxl/sdk/bridge';
 import type { Keymap } from './keymap';
+import type { FontConfig } from './wangcai.api';
 
 // An 'array' leaf takes whatever list init.ts holds and leaves its entries to the plugin to check.
-function resolveConfig(schema: unknown, values: unknown): Record<string, unknown> {
+function resolveConfig(schema: unknown, values: unknown, defaults?: unknown): Record<string, unknown> {
   const settings: Record<string, unknown> = {};
   if (typeof schema !== 'object' || schema === null) return settings;
   const given = (typeof values === 'object' && values !== null ? values : {}) as Record<string, unknown>;
+  const fallback = (typeof defaults === 'object' && defaults !== null ? defaults : {}) as Record<string, unknown>;
   for (const [key, entry] of Object.entries(schema as Record<string, unknown>)) {
     if (typeof entry !== 'object' || entry === null) continue;
     const declared = entry as { type?: unknown; default?: unknown };
+    const inherited = Object.hasOwn(fallback, key) ? fallback[key] : undefined;
     if (typeof declared.type === 'string') {
-      const matches = declared.type === 'array' ? Array.isArray(given[key]) : typeof given[key] === declared.type;
-      const value = matches ? given[key] : declared.default;
+      const matches = (value: unknown) => declared.type === 'array' ? Array.isArray(value) : typeof value === declared.type;
+      let value = given[key];
+      if (!matches(value)) value = inherited !== undefined && matches(inherited) ? inherited : declared.default;
       if (value !== undefined) settings[key] = value;
       continue;
     }
-    const nested = resolveConfig(entry, given[key]);
+    const nested = resolveConfig(entry, given[key], inherited);
     if (Object.keys(nested).length) settings[key] = nested;
   }
   return settings;
 }
 
 export async function loadPlugins(options: {
-  storageDirectory: string; connect: MainContext['connect']; profile: Profile;
+  storageDirectory: string; connect: MainContext['connect'];
+  profile: Profile; font?: FontConfig;
   plugins: PluginEntry[]; broadcast: (event: string, data: unknown) => void;
   keymap: Pick<Keymap, 'add' | 'clear'>;
 }) {
-  const { storageDirectory, connect, profile, plugins: installed, broadcast, keymap } = options;
+  const { storageDirectory, connect, profile, font, plugins: installed, broadcast, keymap } = options;
   const infos: PluginInfo[] = [];
   const directories = new Map<string, string>();
   const handlers = new Map<string, Map<string, (params: any) => unknown>>();
@@ -77,7 +82,7 @@ export async function loadPlugins(options: {
       const module = { exports: {} as { activate(context: MainContext): void | Dispose | Promise<void | Dispose>; config?: unknown; keys?: unknown } };
       compileFunction(readFileSync(filename, 'utf8'), ['require', 'module', 'exports', '__filename', '__dirname'], { filename })
         .call(module.exports, createRequire(filename), module, module.exports, filename, dirname(filename));
-      const settings = resolveConfig(module.exports.config, entry.config);
+      const settings = resolveConfig(module.exports.config, entry.config, font && { font: { ...font } });
       info.config = settings;
       info.workspaces = entry.workspaces;
       const dataDirectory = join(storageDirectory, 'data', id);
