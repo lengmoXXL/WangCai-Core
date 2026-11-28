@@ -96,7 +96,7 @@ async function start() {
   window.wangcai.subscribe('core:focus-left', () => moveKeys(-1));
   window.wangcai.subscribe('core:focus-right', () => moveKeys(1));
 
-  const opens = new Map<string, (record?: TabRecord) => Promise<void>>();
+  const opens = new Map<string, (record?: TabRecord, register?: UiContext['host']['tabs']) => Promise<void>>();
   for (const plugin of plugins) {
     if (!plugin.error && !plugin.ui) continue;
     const container = document.createElement('section');
@@ -157,8 +157,9 @@ async function start() {
       if (module.open) container.hidden = true;
       dispose = await module.mount(container, context);
       if (module.open) {
-        const open = async (record?: TabRecord) => {
-          try { await module.open(context, record); } catch (error) { await fail(error); }
+        const open = async (record?: TabRecord, register?: UiContext['host']['tabs']) => {
+          const scope = register ? { ...context, host: { ...context.host, tabs: register } } : context;
+          try { await module.open(scope, record); } catch (error) { await fail(error); }
         };
         tabStrip.addView(module.title ?? plugin.id, () => { void open(); });
         opens.set(plugin.id, open);
@@ -185,12 +186,10 @@ async function start() {
     }
     await open();
   });
-  await tabStrip.restore((record) => opens.get(record.plugin)?.(record));
-  // A workspace switched to before its plugin drew a page had nothing to take the keys, so the tab strip hands them over
-  // here the way it does anywhere else.
-  //
-  // Only a window with nothing focused needs it: a restored sidebar tab has already put the keys in its own field.
-  if (document.activeElement === document.body) tabStrip.takeKeys();
   disposers.push(tabStrip.dispose);
+  const restored = tabStrip.restore((record, register) => opens.get(record.plugin)?.(record, register));
+  // The first workspace can be selected before its plugin draws a page to take the keys.
+  if (document.activeElement === document.body) tabStrip.takeKeys();
+  await restored;
 }
 void start().catch((error) => { root.textContent = String(error); });

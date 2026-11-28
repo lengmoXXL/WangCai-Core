@@ -27,16 +27,28 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
   const content = document.createElement('div');
   content.className = 'sidebar-content';
   right.append(header, content);
-  type Tab = { key: string; element: HTMLElement; button: HTMLButtonElement; panel: HTMLElement; content: TabContent; workspaceId?: string; onClose?(): void };
+  type Tab = {
+    key: string; element: HTMLElement; button: HTMLButtonElement; panel: HTMLElement;
+    options: TabOptions; content?: TabContent; workspaceId?: string;
+  };
+  type RestoreRegistration = { record: TabRecord; claimed?: true };
   let active: string | undefined;
   let current = '';
+  let collapsed = false;
   const selected = new Map<string, string>();
   const tabs = new Map<string, Tab>();
-  const records = new Map<string, TabRecord>();
+  let records = new Map<string, TabRecord>();
   let dragging: string | undefined;
+  let registeringRestore: RestoreRegistration | undefined;
+  let knownWorkspaces = new Set<string>();
   // The key a tab is known by: the records, the open tabs and a workspace's selected tab align on it.
   const keyOf = (plugin: string, workspaceId: string | undefined, id: string) => JSON.stringify([plugin, workspaceId ?? '', id]);
   for (const record of await call<TabRecord[]>('tabs')) records.set(keyOf(record.plugin, record.workspaceId, record.id), record);
+  const orderedTabs = () => [...records.keys()].flatMap((key) => tabs.get(key) ?? []);
+  const save = () => { void call('save-tabs', [...records.values()]); };
+  const rekey = (from: string, to: string, record: TabRecord) => {
+    records = new Map([...records].map(([key, entry]) => key === from ? [to, record] : [key, entry]));
+  };
 
   const viewPicker = document.createElement('button');
   viewPicker.className = 'view-picker';
@@ -68,50 +80,89 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
   toggle.setAttribute('aria-label', '切换右侧栏');
   toggle.setAttribute('aria-expanded', 'false');
   root.append(toggle, viewMenu);
+  const setSidebarHidden = (hidden = collapsed || !tabs.size) => {
+    right.hidden = hidden;
+    toggle.setAttribute('aria-expanded', String(!hidden));
+  };
 
   // A tab that follows no workspace is drawn in every one of them.
   const inFront = (tab: Tab) => tab.workspaceId === undefined || tab.workspaceId === active;
-  const show = () => {
-    right.hidden = !tabs.size;
-    toggle.setAttribute('aria-expanded', String(!right.hidden));
-    for (const [key, tab] of tabs) {
-      const visible = inFront(tab);
-      const isCurrent = key === current;
-      tab.element.hidden = !visible;
-      tab.button.setAttribute('aria-selected', String(isCurrent));
-      tab.panel.hidden = !visible || !isCurrent;
-    }
+  const drawTab = (tab: Tab) => {
+    const visible = inFront(tab);
+    const isCurrent = tab.key === current;
+    tab.element.hidden = !visible;
+    tab.button.setAttribute('aria-selected', String(isCurrent));
+    tab.panel.hidden = !visible || !isCurrent;
   };
+  const drawTabs = () => { for (const tab of tabs.values()) drawTab(tab); };
   const frontTab = () => {
     const tab = right.hidden ? undefined : tabs.get(current);
     return tab && inFront(tab) ? tab : undefined;
   };
+  const mount = (tab: Tab, showing = false): TabContent => {
+    try {
+      const mounted = tab.content ??= tab.options.mount(tab.panel);
+      if (showing) mounted.onSelect?.();
+      return mounted;
+    } catch (error) {
+      const message = document.createElement('div');
+      message.className = 'plugin-error';
+      message.textContent = `${tab.panel.dataset.plugin}: ${error instanceof Error ? error.message : String(error)}`;
+      tab.panel.prepend(message);
+      const mounted = tab.content;
+      return tab.content = { dispose: () => mounted?.dispose() };
+    }
+  };
+  const showSelected = () => {
+    setSidebarHidden();
+    drawTabs();
+    const tab = frontTab();
+    if (tab) mount(tab, true);
+  };
+  const selectedKey = () => selected.get(active ?? '') ?? selected.get('') ?? '';
   const takeKeys = (page?: HTMLElement) => handKeysTo(page ?? frontTab()?.panel ?? mainPage());
   // Whether the sidebar has a tab in front to hand the keys to: without one it is not a pane that can take them.
   const takesKeys = () => frontTab() !== undefined;
-  const select = (key: string) => {
+  const select = (key: string, restoring = false) => {
     const tab = tabs.get(key);
-    current = tab ? key : '';
     if (tab) selected.set(tab.workspaceId ?? '', key);
-    show();
-    tab?.content.onSelect?.();
-    takeKeys();
+    if (!restoring) collapsed = false;
+    if (tab && !inFront(tab)) {
+      setSidebarHidden();
+      drawTab(tab);
+      return;
+    }
+    current = tab ? key : '';
+    // The plugin's mount and onSelect can focus controls while the user is typing elsewhere.
+    const panel = restoring && document.activeElement !== document.body ? tab?.panel : undefined;
+    if (panel) panel.inert = true;
+    try {
+      showSelected();
+    } finally {
+      if (panel) panel.inert = false;
+    }
+    if (!restoring || document.activeElement === document.body) takeKeys();
     tab?.button.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   };
   toggle.onclick = () => {
-    right.hidden = !right.hidden;
-    toggle.setAttribute('aria-expanded', String(!right.hidden));
-    // Hiding the sidebar, and showing it with no tab in front, hand the keys over here: `select` goes through `show`,
+    collapsed = !right.hidden;
+    setSidebarHidden(collapsed);
+    // Hiding the sidebar, and showing it with no tab in front, hand the keys over here: `select` goes through `showSelected`,
     // which sets the sidebar's visibility from the tab count, so it would undo the hide or hide an empty sidebar again.
     if (frontTab()) select(current);
     else takeKeys();
     viewMenu.hidePopover();
   };
 
+  const disposeContent = (content: TabContent) => {
+    try { void Promise.resolve(content.dispose()).catch(console.error); } catch (error) { console.error(error); }
+  };
   const removeTab = (key: string) => {
     const tab = tabs.get(key)!;
-    tab.onClose?.();
-    void tab.content.dispose();
+    // Plugins can keep state from open() in the disposer returned by mount().
+    const content = mount(tab);
+    try { tab.options.onClose?.(); } catch (error) { console.error(error); }
+    disposeContent(content);
     tab.element.remove();
     tab.panel.remove();
     tabs.delete(key);
@@ -119,60 +170,86 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
   };
   const settle = (activeId: string | undefined) => {
     active = activeId;
-    void call('save-tabs', [...records.values()]);
-    const wanted = selected.get(activeId ?? '') ?? selected.get('');
-    current = wanted && tabs.has(wanted) ? wanted : '';
-    show();
-    tabs.get(current)?.content.onSelect?.();
+    collapsed = false;
+    save();
+    const wanted = selectedKey();
+    current = tabs.has(wanted) ? wanted : '';
+    showSelected();
   };
   const rebindTabs = (id: string) => {
-    for (const [key, tab] of [...tabs]) {
+    for (const tab of orderedTabs()) {
       if (tab.workspaceId !== undefined) continue;
+      const key = tab.key;
       const record = records.get(key)!;
       const moved = keyOf(record.plugin, id, record.id);
       tabs.delete(key);
       tab.workspaceId = id;
       tab.key = moved;
       tabs.set(moved, tab);
-      records.delete(key);
-      records.set(moved, { ...record, workspaceId: id });
+      rekey(key, moved, { ...record, workspaceId: id });
       if (selected.get('') === key) selected.set(id, moved);
     }
   };
   // A tab whose workspace a provider stopped serving goes with it.
   const closeGoneTabs = (ids: string[]) => {
-    for (const [key, tab] of [...tabs]) {
-      if (tab.workspaceId === undefined || ids.includes(tab.workspaceId)) continue;
-      removeTab(key);
+    const present = new Set(ids);
+    let changed = false;
+    for (const [key, { workspaceId }] of [...records]) {
+      if (workspaceId === undefined || present.has(workspaceId)) continue;
+      if (tabs.has(key)) removeTab(key);
+      else if (!knownWorkspaces.has(workspaceId) || !records.delete(key)) continue;
+      changed = true;
     }
+    knownWorkspaces = present;
+    if (changed) save();
   };
 
   // Closing a tab hands its place to the neighbour beside it; the window's keys close one the same way.
   const closeTab = (key: string) => {
     const tab = tabs.get(key);
     if (!tab) return;
-    const siblings = [...tabs].filter(([, item]) => (item.workspaceId ?? '') === (tab.workspaceId ?? '')).map(([itemKey]) => itemKey);
+    const siblings = orderedTabs().filter((item) => (item.workspaceId ?? '') === (tab.workspaceId ?? '')).map((item) => item.key);
     const index = siblings.indexOf(key);
     removeTab(key);
-    void call('save-tabs', [...records.values()]);
+    save();
     if (current === key) select(siblings[index - 1] ?? siblings[index + 1] ?? '');
   };
 
-  const open = (plugin: string, options: TabOptions) => {
+  const open = (plugin: string, options: TabOptions, registration = registeringRestore) => {
+    const restore = registration && !registration.claimed && registration.record.plugin === plugin
+      && registration.record.id === options.id ? registration : undefined;
     const workspaceId = options.workspaceId ?? active;
     const key = keyOf(plugin, workspaceId, options.id);
-    records.set(key, { plugin, id: options.id, workspaceId });
-    void call('save-tabs', [...records.values()]);
     const existing = tabs.get(key);
+    if (restore) {
+      const { record } = restore;
+      const savedKey = keyOf(plugin, record.workspaceId, record.id);
+      if (records.get(savedKey) !== record || tabs.has(savedKey)) return;
+      if (savedKey !== key) {
+        if (records.has(key)) {
+          records.delete(savedKey);
+          save();
+          return;
+        }
+        rekey(savedKey, key, { ...record, workspaceId });
+        save();
+      }
+      restore.claimed = true;
+    } else if (!records.has(key)) {
+      records.set(key, { plugin, id: options.id, workspaceId });
+      save();
+    }
     if (existing) {
-      void existing.content.dispose();
+      disposeContent(mount(existing));
       existing.panel.replaceChildren();
-      existing.content = options.mount(existing.panel);
+      existing.content = undefined;
+      existing.options = options;
       select(key);
       return;
     }
     const element = document.createElement('div');
     element.className = 'sidebar-tab';
+    element.hidden = true;
     const button = document.createElement('button');
     button.setAttribute('role', 'tab');
     button.textContent = options.title;
@@ -183,12 +260,13 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
     close.setAttribute('aria-label', `关闭 ${options.title}`);
     const panel = document.createElement('section');
     panel.className = 'sidebar-panel';
+    panel.hidden = true;
     panel.dataset.plugin = plugin;
     // `-1`: a click focuses the pane so its local keys answer, without adding a tab stop.
     panel.tabIndex = -1;
     panel.setAttribute('role', 'tabpanel');
     panel.setAttribute('aria-label', options.title);
-    const tab: Tab = { key, element, button, panel, workspaceId, onClose: options.onClose, content: options.mount(panel) };
+    const tab: Tab = { key, element, button, panel, workspaceId, options };
     button.onclick = () => select(tab.key);
     close.onclick = () => closeTab(tab.key);
     element.append(button, close);
@@ -209,29 +287,36 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
       event.preventDefault();
       const source = dragging!;
       const after = element.dataset.drop === 'after';
-      const visible = [...tabs].filter(([, item]) => inFront(item));
-      const before = after ? visible[visible.findIndex(([item]) => item === tab.key) + 1]?.[0] : tab.key;
-      const reorder = <T>(map: Map<string, T>) => {
-        if (source === before) return;
-        const value = map.get(source)!;
-        map.delete(source);
-        if (before === undefined) { map.set(source, value); return; }
-        const entries = [...map];
-        map.clear();
+      const visible = orderedTabs().filter(inFront);
+      const before = after ? visible[visible.indexOf(tab) + 1]?.key : tab.key;
+      if (source === before) return;
+      const record = records.get(source)!;
+      records.delete(source);
+      if (before === undefined) records.set(source, record);
+      else {
+        const entries = [...records];
+        records.clear();
         for (const [item, entry] of entries) {
-          if (item === before) map.set(source, value);
-          map.set(item, entry);
+          if (item === before) records.set(source, record);
+          records.set(item, entry);
         }
-      };
-      reorder(tabs);
-      reorder(records);
+      }
       header.insertBefore(tabs.get(source)!.element, before === undefined ? viewPicker : tabs.get(before)!.element);
-      void call('save-tabs', [...records.values()]);
+      save();
     };
-    header.insertBefore(element, viewPicker);
-    content.append(panel);
     tabs.set(key, tab);
-    select(key);
+    const ordered = orderedTabs();
+    header.insertBefore(element, ordered[ordered.indexOf(tab) + 1]?.element ?? viewPicker);
+    content.append(panel);
+    if (restore) {
+      const scope = workspaceId ?? '';
+      if (registeringRestore) {
+        if (!inFront(tab) || !frontTab()) selected.set(scope, key);
+        return;
+      }
+      if (tabs.has(selected.get(scope) ?? '')) { drawTab(tab); return; }
+    }
+    select(key, restore !== undefined);
   };
 
   return {
@@ -241,9 +326,9 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
     closeSelected() { closeTab(current); },
     /** Brings an open tab of this plugin, in the workspace in front, to the front; false when there is none. */
     reveal(plugin: string) {
-      const picked = [...tabs].find(([key, tab]) => records.get(key)!.plugin === plugin && inFront(tab));
+      const picked = orderedTabs().find((tab) => records.get(tab.key)!.plugin === plugin && inFront(tab));
       if (!picked) return false;
-      select(picked[0]);
+      select(picked.key);
       return true;
     },
     settle,
@@ -256,12 +341,31 @@ export async function sidebarTabs(root: HTMLElement, mainPage: () => HTMLElement
       item.onclick = () => { open(); viewMenu.hidePopover(); };
       viewMenu.append(item);
     },
-    async restore(open: (record: TabRecord) => Promise<void> | undefined) {
-      for (const record of records.values()) await open(record);
+    async restore(openView: (record: TabRecord, register: (options: TabOptions) => void) => Promise<void> | undefined) {
+      if (!records.size) return;
+      const pending: (Promise<void> | undefined)[] = [];
+      try {
+        for (const [key, record] of [...records]) {
+          if (records.get(key) !== record || tabs.has(key)) continue;
+          const registration = { record };
+          // A plugin may open through the context it saved from mount().
+          registeringRestore = registration;
+          pending.push(openView(record, (options) => open(record.plugin, options, registration)));
+        }
+      } finally {
+        registeringRestore = undefined;
+        const key = selectedKey();
+        if (key !== current && tabs.has(key)) select(key);
+        else {
+          setSidebarHidden();
+          drawTabs();
+        }
+      }
+      await Promise.all(pending);
     },
     dispose() {
       document.removeEventListener('scroll', onScroll, true);
-      for (const tab of tabs.values()) void tab.content.dispose();
+      for (const tab of tabs.values()) if (tab.content) disposeContent(tab.content);
       tabs.clear();
     },
   };
